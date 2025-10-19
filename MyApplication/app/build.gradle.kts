@@ -3,13 +3,13 @@ plugins {
 }
 
 android {
-    namespace = "com.example.telepresencerobot"
+    namespace = "com.example.myapplication"
     compileSdk {
         version = release(36)
     }
 
     defaultConfig {
-        applicationId = "com.example.telepresencerobot"
+        applicationId = "com.example.myapplication"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -32,16 +32,13 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 }
+
 dependencies {
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.activity)
     implementation(libs.constraintlayout)
-    implementation(libs.mediarouter)
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
-    implementation ("com.github.pedroSG94.RootEncoder:library:2.6.4")
-    implementation ("com.github.pedroSG94.RootEncoder:extra-sources:2.6.4")
 }
-
