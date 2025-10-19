@@ -17,16 +17,18 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.pedro.common.ConnectChecker;
+import com.pedro.encoder.input.video.CameraHelper;
 import com.pedro.library.rtmp.RtmpCamera2;
 import com.pedro.library.view.OpenGlView;
+
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class MainActivity extends AppCompatActivity {
     private OpenGlView openGlView;
     private RtmpCamera2 rtmpCamera;
     private Button buttonStartStop;
-    private Spinner cameraSpinner;
-    private ActivityResultLauncher<String> requestPermissionLauncher;
     private final ConnectChecker connectCheckerRtmp = new ConnectChecker() {
         @Override
         public void onAuthSuccess() {
@@ -69,7 +71,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         openGlView = findViewById(R.id.view3);
         buttonStartStop = findViewById(R.id.button_start_stop);
-        cameraSpinner = findViewById(R.id.cameraSpinner);
+        Button buttonCamToggle = findViewById(R.id.button_tog_cam);
         if (openGlView == null) {
             Toast.makeText(this, "OpenGlView not found!", Toast.LENGTH_LONG).show();
         }
@@ -79,30 +81,16 @@ public class MainActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
-        requestPermissionLauncher = registerForActivityResult(
-                new ActivityResultContracts.RequestPermission(),
-                isGranted -> {
-                    if (isGranted) {// Разрешение получено
-
-                    } else {
-                        Toast.makeText(
-                                MainActivity.this,
-                                "Camera permission is required to use this feature.",
-                                Toast.LENGTH_SHORT
-                        ).show();
-                    }
-                }
-        );
-
-
-        buttonStartStop.setOnClickListener(v -> toggleStream());;
-        checkAndRequestCameraPermission();
+        buttonCamToggle.setOnClickListener(v -> toggleCamera());
+        buttonStartStop.setOnClickListener(v -> toggleStream());
+        checkAndRequestPermissions();
 
     }
     private void initializeCamera() {
         try {
             if (openGlView != null) {
                 rtmpCamera = new RtmpCamera2(openGlView, connectCheckerRtmp);
+                rtmpCamera.startPreview(CameraHelper.Facing.FRONT);
 //                startPreview();
             } else {
                 Toast.makeText(this, "OpenGlView is not initialized", Toast.LENGTH_LONG).show();
@@ -112,11 +100,31 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
     }
-    private void checkAndRequestCameraPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-            initializeCamera();
+    private final ActivityResultLauncher<String[]> requestMultiplePermissionsLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(),
+                    permissions -> {
+                        if (Boolean.TRUE.equals(permissions.getOrDefault(Manifest.permission.CAMERA, false)) &&
+                                Boolean.TRUE.equals(permissions.getOrDefault(Manifest.permission.RECORD_AUDIO, false))) {
+                            initializeCamera();
+                        } else {
+                            Toast.makeText(this, "Не все разрешения предоставлены", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+
+    private void checkAndRequestPermissions() {
+        List<String> permissionsToRequest = new ArrayList<>();
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.CAMERA);
+        }
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.RECORD_AUDIO);
+        }
+        if (!permissionsToRequest.isEmpty()) {
+            requestMultiplePermissionsLauncher.launch(permissionsToRequest.toArray(new String[0]));
         } else {
-            requestPermissionLauncher.launch(Manifest.permission.CAMERA);
+            initializeCamera();
         }
     }
 
@@ -127,12 +135,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-
 //    private void startPreview() {
 //        if (!rtmpCamera.isOnPreview()) {
 //            rtmpCamera.startPreview();
 //        }
 //    }
+    private void toggleCamera() {
+        if (rtmpCamera != null) {
+            rtmpCamera.switchCamera();
+        }
+    }
     private void toggleStream() {
         if (!rtmpCamera.isStreaming()) {
             startStream();
@@ -144,6 +156,7 @@ public class MainActivity extends AppCompatActivity {
         if (rtmpCamera == null) {
             Toast.makeText(this, "Camera not initialized", Toast.LENGTH_SHORT).show();
             return;
+
         }
         String rtmpUrl = "rtmp://";//will be later
         if (rtmpCamera.prepareAudio() && rtmpCamera.prepareVideo()) {
