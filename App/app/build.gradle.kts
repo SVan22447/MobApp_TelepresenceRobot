@@ -41,6 +41,9 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
+    implementation("org.slf4j:slf4j-android:1.7.36")
+    implementation("com.github.codecrunchers-x:WebRTC-Android-Library:v1.0.32006")
+    implementation("org.java-websocket:Java-WebSocket:1.4.0")
     implementation ("com.github.pedroSG94.RootEncoder:library:2.6.4")
     implementation ("com.github.pedroSG94.RootEncoder:extra-sources:2.6.4")
 }
