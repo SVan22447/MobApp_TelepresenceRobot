@@ -2,6 +2,7 @@ package com.example.telepresencerobot;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.view.Menu;
@@ -24,24 +25,30 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
-    private static final Logger logger = LoggerFactory.getLogger(MainActivity.class);
+     static final Logger logger = LoggerFactory.getLogger(MainActivity.class);
     private SurfaceViewRenderer localVideoView;
     private SurfaceViewRenderer remoteVideoView;
     private PeerConnectionFactory factory;
     private PeerConnection peerConnection;
     private Button buttonStartStop;
     private CameraVideoCapturer videoCapturer;
-    private final List<PeerConnection.IceServer> iceServers = List.of(
-            PeerConnection.IceServer.builder("stun://").createIceServer()
-    );
-    private final PeerConnection.RTCConfiguration rtcConfig =
-            new PeerConnection.RTCConfiguration(iceServers);
+    private ApplicationInfo ai;
+    private PeerConnection.RTCConfiguration rtcConfig;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
         setSupportActionBar(findViewById(R.id.toolbar));
+        try {
+            ai = getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA);
+        } catch (PackageManager.NameNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+        List<PeerConnection.IceServer> iceServers = List.of(
+                PeerConnection.IceServer.builder((String)ai.metaData.get("TestUri")).createIceServer()
+        );
+        rtcConfig = new PeerConnection.RTCConfiguration(iceServers);
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
@@ -60,6 +67,8 @@ public class MainActivity extends AppCompatActivity {
         remoteVideoView = findViewById(R.id.remote_video_view);
         buttonStartStop = findViewById(R.id.button_start_stop);
         Button buttonCamToggle = findViewById(R.id.button_tog_cam);
+        TextView text= findViewById(R.id.textView);
+        text.setText((CharSequence) ai.metaData.get("TestUri"));
         PeerConnectionFactory.initialize(
                 PeerConnectionFactory.InitializationOptions
                         .builder(this)
