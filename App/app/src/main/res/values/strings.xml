@@ -3,5 +3,8 @@
     <string name="start_text">Пошёл нахуй!</string>
     <string name="select_text">Смена камеры</string>
     <string name="Enable_disable">Вкл/Выкл</string>
+    <string name="buttonOne">Пользователь</string>
+    <string name="buttonTwo">Робот/Сервер</string>
+    <string name="ChoiceTxt">Выбор режима</string>
     <string name="RtcUrl">…</string>
 </resources>

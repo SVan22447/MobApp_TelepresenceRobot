@@ -17,7 +17,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.TelepresenceRobot">
         <activity
-            android:name=".MainActivity"
+            android:name=".StartActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -25,7 +25,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".RobotActivity"/>
+        <activity android:name=".MainActivity"/>
         <meta-data
+
             android:name = "TestUri"
             android:value = "${TestUri}"/>
     </application>
