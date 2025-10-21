@@ -2,5 +2,6 @@
     <string name="app_name">TelepresenceRobot</string>
     <string name="start_text">Пошёл нахуй!</string>
     <string name="select_text">Смена камеры</string>
+    <string name="Enable_disable">Вкл/Выкл</string>
     <string name="RtcUrl">…</string>
 </resources>

@@ -30,7 +30,7 @@ public class MainActivity extends AppCompatActivity {
     private SurfaceViewRenderer remoteVideoView;
     private PeerConnectionFactory factory;
     private PeerConnection peerConnection;
-    private Button buttonStartStop;
+    private ImageButton buttonStartStop;
     private CameraVideoCapturer videoCapturer;
     private ApplicationInfo ai;
     private PeerConnection.RTCConfiguration rtcConfig;
@@ -39,7 +39,6 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
-        setSupportActionBar(findViewById(R.id.toolbar));
         try {
             ai = getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA);
         } catch (PackageManager.NameNotFoundException e) {
@@ -57,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
         initializeViews();
         checkAndRequestPermissions();
     }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.main_menu, menu);
@@ -66,7 +66,7 @@ public class MainActivity extends AppCompatActivity {
         localVideoView = findViewById(R.id.local_video_view);
         remoteVideoView = findViewById(R.id.remote_video_view);
         buttonStartStop = findViewById(R.id.button_start_stop);
-        Button buttonCamToggle = findViewById(R.id.button_tog_cam);
+        setSupportActionBar(findViewById(R.id.toolbar));
         TextView text= findViewById(R.id.textView);
         text.setText((CharSequence) ai.metaData.get("TestUri"));
         PeerConnectionFactory.initialize(
@@ -75,7 +75,7 @@ public class MainActivity extends AppCompatActivity {
                         .createInitializationOptions()
         );
         buttonStartStop.setOnClickListener(v -> toggleStream());
-        buttonCamToggle.setOnClickListener(v -> toggleCamera());
+//        buttonCamToggle.setOnClickListener(v -> toggleCamera());
     }
     private void initializeWebRTC() {
         PeerConnectionFactory.Options options = new PeerConnectionFactory.Options();
@@ -205,11 +205,13 @@ public class MainActivity extends AppCompatActivity {
             runOnUiThread(() -> {
                 if (newState == PeerConnection.PeerConnectionState.CONNECTED) {
                     Toast.makeText(MainActivity.this, "WebRTC Connected", Toast.LENGTH_SHORT).show();
-                    buttonStartStop.setText("Stop Connection");
+//                    buttonStartStop.setText("Stop Connection");
+//                    buttonStartStop.setImageIcon();
                 } else if (newState == PeerConnection.PeerConnectionState.DISCONNECTED ||
                         newState == PeerConnection.PeerConnectionState.FAILED) {
                     Toast.makeText(MainActivity.this, "WebRTC Disconnected", Toast.LENGTH_SHORT).show();
-                    buttonStartStop.setText("Start Connection");
+//                    buttonStartStop.setText("Start Connection");
+//                    buttonStartStop.setImageIcon();
                 }
             });
         }
@@ -241,26 +243,26 @@ public class MainActivity extends AppCompatActivity {
             initializeWebRTC();
         }
     }
-    private void toggleCamera() {
-        if (videoCapturer != null) {
-            videoCapturer.switchCamera(new CameraVideoCapturer.CameraSwitchHandler() {
-                @Override
-                public void onCameraSwitchDone(boolean isFrontCamera) {
-                    runOnUiThread(() ->
-                            Toast.makeText(MainActivity.this,
-                                    "Switched to " + (isFrontCamera ? "front" : "back") + " camera",
-                                    Toast.LENGTH_SHORT).show());
-                }
-                @Override
-                public void onCameraSwitchError(String errorDescription) {
-                    runOnUiThread(() ->
-                            Toast.makeText(MainActivity.this,
-                                    "Camera switch error: " + errorDescription,
-                                    Toast.LENGTH_SHORT).show());
-                }
-            });
-        }
-    }
+//    private void toggleCamera() {
+//        if (videoCapturer != null) {
+//            videoCapturer.switchCamera(new CameraVideoCapturer.CameraSwitchHandler() {
+//                @Override
+//                public void onCameraSwitchDone(boolean isFrontCamera) {
+//                    runOnUiThread(() ->
+//                            Toast.makeText(MainActivity.this,
+//                                    "Switched to " + (isFrontCamera ? "front" : "back") + " camera",
+//                                    Toast.LENGTH_SHORT).show());
+//                }
+//                @Override
+//                public void onCameraSwitchError(String errorDescription) {
+//                    runOnUiThread(() ->
+//                            Toast.makeText(MainActivity.this,
+//                                    "Camera switch error: " + errorDescription,
+//                                    Toast.LENGTH_SHORT).show());
+//                }
+//            });
+//        }
+//    }
     private void toggleStream() {
         if (peerConnection != null) {
             if (peerConnection.connectionState() ==
@@ -334,7 +336,8 @@ public class MainActivity extends AppCompatActivity {
                 logger.error("An error occurred: ", e);
             }
         }
-        buttonStartStop.setText("Start Connection");
+//        buttonStartStop.setText("Start Connection");
+//        buttonStartStop.setImageIcon();
     }
 
     @Override
