@@ -41,12 +41,13 @@
             app:title=" "
             android:layout_height="?attr/actionBarSize" />
     </com.google.android.material.appbar.AppBarLayout>
+
     <TextView
         android:id="@+id/textView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/RtcUrl"
-        app:layout_constraintBottom_toTopOf="@+id/button_start_stop"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
