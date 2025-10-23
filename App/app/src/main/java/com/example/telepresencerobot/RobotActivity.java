@@ -20,16 +20,18 @@ import java.util.List;
 
 public class RobotActivity extends BaseWebRTCActivity {
     static final Logger logger = LoggerFactory.getLogger(RobotActivity.class);
-    private SurfaceViewRenderer remoteVideoView;
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        remoteVideoView = findViewById(R.id.remote_video_view);
     }
     @Override
     protected void onPermissionsGranted() {
+        webRTCManager.initialize(getIceServers());
+        webRTCManager.setupLocalMedia(eglBase.getEglBaseContext());
     }
     @Override
     protected boolean isFrontCameraPreferred() {
@@ -37,7 +39,9 @@ public class RobotActivity extends BaseWebRTCActivity {
     }
     @Override
     protected List<PeerConnection.IceServer> getIceServers() {
-        return Collections.emptyList();
+        return List.of(
+                PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer()
+        );
     }
     @Override
     public void onConnected() {
