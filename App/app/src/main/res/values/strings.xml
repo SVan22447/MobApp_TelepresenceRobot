@@ -6,5 +6,7 @@
     <string name="buttonOne">Пользователь</string>
     <string name="buttonTwo">Робот/Сервер</string>
     <string name="ChoiceTxt">Выбор режима</string>
+    <string name="test_link">wss://vzdpvvbl-8080.euw.devtunnels.ms/</string>
+    <!--    тестовый туннель-->
     <string name="RtcUrl">…</string>
 </resources>

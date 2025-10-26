@@ -3,6 +3,7 @@ package com.example.telepresencerobot.base;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -10,21 +11,22 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
-import org.webrtc.*;
+import com.example.telepresencerobot.webrtc.PeerConnectionManager;
+import com.example.telepresencerobot.websocket.SignalingClient;
 
-import com.example.telepresencerobot.webrtc.WebRTCManager;
-import com.example.telepresencerobot.websocket.WebSocketManager;
+import org.webrtc.*;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public abstract class BaseWebRTCActivity extends AppCompatActivity
-        implements WebRTCManager.WebRTCListener, WebSocketManager.WebSocketListener {
-    protected WebRTCManager webRTCManager;
-    protected WebSocketManager webSocketManager;
+        implements SignalingClient.Listener, PeerConnectionManager.PeerConnectionListener {
+    protected PeerConnectionManager peerConnectionManager;
+    protected SignalingClient signalingClient;
     protected SurfaceViewRenderer localVideoView;
     protected SurfaceViewRenderer remoteVideoView;
     protected EglBase eglBase;
+    protected PeerConnectionFactory factory;
     private final ActivityResultLauncher<String[]> requestMultiplePermissionsLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(),
                     permissions -> {
@@ -38,25 +40,53 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        PeerConnectionFactory.initialize(
+                PeerConnectionFactory.InitializationOptions.builder(this)
+                        .createInitializationOptions()
+        );
         eglBase = EglBase.create();
-        webRTCManager = new WebRTCManager(this, this, isFrontCameraPreferred());
-        webSocketManager = new WebSocketManager(this);
+        PeerConnectionFactory.Options options = new PeerConnectionFactory.Options();
+        factory = PeerConnectionFactory.builder()
+                .setOptions(options)
+                .createPeerConnectionFactory();
+        signalingClient = new SignalingClient(getSocketServerUrl(), this);
     }
     protected void initializeVideoViews() {
         if (localVideoView != null) {
             localVideoView.init(eglBase.getEglBaseContext(), null);
+            localVideoView.setMirror(true);
+            Log.d("BaseWebRTCActivity", "Local video view initialized");
         }
         if (remoteVideoView != null) {
             remoteVideoView.init(eglBase.getEglBaseContext(), null);
+            Log.d("BaseWebRTCActivity", "Remote video view initialized");
         }
+    }
+    protected void initializePeerConnection() {
+        VideoSink localSink = localVideoView != null ? localVideoView : VideoFrame::release;
+        VideoSink remoteSink = remoteVideoView != null ? remoteVideoView : VideoFrame::release;
+        Log.d("BaseWebRTCActivity", "Initializing PeerConnection - Local video: " + (localVideoView != null) +
+                ", Remote video: " + (remoteVideoView != null));
+        peerConnectionManager = new PeerConnectionManager(
+                this,
+                factory,
+                getIceServers(),
+                eglBase.getEglBaseContext(),
+                remoteSink,
+                localSink,
+                hasLocalVideo(),  // Включаем видео только если есть локальный View
+                hasLocalAudio()  // Включаем аудио только если нужно
+        );
+
+        peerConnectionManager.createPeer(this);
     }
     protected void checkAndRequestPermissions() {
         List<String> permissionsToRequest = new ArrayList<>();
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+        if (hasLocalVideo() && ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED) {
             permissionsToRequest.add(Manifest.permission.CAMERA);
         }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+        if (hasLocalAudio() && ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
             permissionsToRequest.add(Manifest.permission.RECORD_AUDIO);
         }
@@ -66,56 +96,140 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
             onPermissionsGranted();
         }
     }
-
     protected abstract void onPermissionsGranted();
     protected abstract boolean isFrontCameraPreferred();
     protected abstract List<PeerConnection.IceServer> getIceServers();
-
-    // WebRTCManager.WebRTCListener implementations
+    protected abstract String getSocketServerUrl();
+    protected abstract String getRoomName();
+    protected abstract boolean isOfferer();
+    protected boolean hasLocalVideo() {
+        return localVideoView != null;
+    }
+    protected boolean hasLocalAudio() {
+        return true; // По умолчанию включаем аудио, можно переопределить
+    }
     @Override
-    public void onLocalVideoTrackCreated(VideoTrack videoTrack) {
+    public void onPeerJoined(String peerId) {
         runOnUiThread(() -> {
-            if (localVideoView != null) {
-                videoTrack.addSink(localVideoView);
+            Log.d("BaseWebRTCActivity", "Peer joined: " + peerId);
+            Toast.makeText(this, "Peer joined: " + peerId, Toast.LENGTH_SHORT).show();
+            if (isOfferer()) {
+                createOffer();
             }
         });
     }
     @Override
-    public void onRemoteVideoTrackReceived(VideoTrack videoTrack) {
+    public void onOffer(String from, String sdp) {
         runOnUiThread(() -> {
+            Log.d("BaseWebRTCActivity", "Received offer from: " + from);
+            Toast.makeText(this, "Received offer from: " + from, Toast.LENGTH_SHORT).show();
+            if (peerConnectionManager != null) {
+                SessionDescription remoteSdp = new SessionDescription(
+                        SessionDescription.Type.OFFER, sdp
+                );
+                peerConnectionManager.setRemoteDescription(remoteSdp);
+                createAnswer();
+            }
+        });
+    }
+    @Override
+    public void onAnswer(String from, String sdp) {
+        runOnUiThread(() -> {
+            Log.d("BaseWebRTCActivity", "Received answer from: " + from);
+            Toast.makeText(this, "Received answer from: " + from, Toast.LENGTH_SHORT).show();
+            if (peerConnectionManager != null) {
+                SessionDescription remoteSdp = new SessionDescription(
+                        SessionDescription.Type.ANSWER, sdp
+                );
+                peerConnectionManager.setRemoteDescription(remoteSdp);
+            }
+        });
+    }
+    @Override
+    public void onIce(String from, String mid, int index, String cand) {
+        Log.d("BaseWebRTCActivity", "Received ICE candidate from: " + from);
+        if (peerConnectionManager != null) {
+            IceCandidate candidate = new IceCandidate(mid, index, cand);
+            peerConnectionManager.addIceCandidate(candidate);
+        }
+    }
+    @Override
+    public void onClosed(String reason) {
+        runOnUiThread(() -> {
+            Log.d("BaseWebRTCActivity", "Connection closed: " + reason);
+            Toast.makeText(this, "Connection closed: " + reason, Toast.LENGTH_SHORT).show();
+        });
+    }
+    @Override
+    public void onIceCandidate(IceCandidate candidate) {
+        Log.d("BaseWebRTCActivity", "Sending ICE candidate");
+        signalingClient.sendIce(
+                candidate.sdpMid,
+                candidate.sdpMLineIndex,
+                candidate.sdp
+        );
+    }
+    @Override
+    public void onConnected() {
+        runOnUiThread(() -> {
+            Log.d("BaseWebRTCActivity", "WebRTC connected");
+            Toast.makeText(this, "WebRTC connected", Toast.LENGTH_SHORT).show();
+        });
+    }
+    @Override
+    public void onDisconnected(String reason) {
+        runOnUiThread(() -> {
+            Log.d("BaseWebRTCActivity", "WebRTC disconnected: " + reason);
+            Toast.makeText(this, "WebRTC disconnected: " + reason, Toast.LENGTH_SHORT).show();
+        });
+    }
+    @Override
+    public void onRemoteVideoTrack(VideoTrack videoTrack) {
+        runOnUiThread(() -> {
+            Log.d("BaseWebRTCActivity", "Remote video track received");
+            Toast.makeText(this, "Remote video track received", Toast.LENGTH_SHORT).show();
             if (remoteVideoView != null) {
                 videoTrack.addSink(remoteVideoView);
             }
         });
     }
-    @Override
-    public void onConnectionStateChanged(PeerConnection.PeerConnectionState state) {
-        runOnUiThread(() -> {
-            String message = "Connection: " + state.name();
-            Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-        });
+    protected void connectToSignalingServer() {
+        Log.d("BaseWebRTCActivity", "Connecting to signaling server");
+        signalingClient.connect(getRoomName());
     }
-    @Override
-    public void onIceConnectionStateChanged(PeerConnection.IceConnectionState state) {
-        runOnUiThread(() -> {
-            String message = "ICE: " + state.name();
-            Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-        });
+
+    protected void disconnectFromSignalingServer() {
+        Log.d("BaseWebRTCActivity", "Disconnecting from signaling server");
+        signalingClient.leave();
     }
-    @Override
-    public void onError(String error) {
-        runOnUiThread(() -> Toast.makeText(this, error, Toast.LENGTH_SHORT).show());
+    protected void createOffer() {
+        Log.d("BaseWebRTCActivity", "Creating offer");
+        if (peerConnectionManager != null) {
+            peerConnectionManager.createOffer(sdp -> {
+                Log.d("BaseWebRTCActivity", "Offer created, sending to signaling server");
+                signalingClient.sendOffer(sdp.description);
+            });
+        }
+    }
+    protected void createAnswer() {
+        Log.d("BaseWebRTCActivity", "Creating answer");
+        if (peerConnectionManager != null) {
+            peerConnectionManager.createAnswer(sdp -> {
+                Log.d("BaseWebRTCActivity", "Answer created, sending to signaling server");
+                signalingClient.sendAnswer(sdp.description);
+            });
+        }
     }
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (webRTCManager != null) {
-            webRTCManager.stopCapture();
-            webRTCManager.close();
-            webRTCManager.dispose();
+        Log.d("BaseWebRTCActivity", "Destroying activity");
+
+        if (peerConnectionManager != null) {
+            peerConnectionManager.close();
         }
-        if (webSocketManager != null) {
-            webSocketManager.disconnect();
+        if (signalingClient != null) {
+            signalingClient.leave();
         }
         if (localVideoView != null) {
             localVideoView.release();
@@ -125,6 +239,9 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
         }
         if (eglBase != null) {
             eglBase.release();
+        }
+        if (factory != null) {
+            factory.dispose();
         }
     }
 }

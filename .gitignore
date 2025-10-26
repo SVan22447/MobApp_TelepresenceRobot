@@ -31,3 +31,8 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+.vscode
+node_modules
+package.json
+package-lock.json

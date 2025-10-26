@@ -11,15 +11,15 @@ import androidx.activity.EdgeToEdge;
 
 import com.example.telepresencerobot.base.BaseWebRTCActivity;
 
-import org.json.JSONObject;
 import org.webrtc.PeerConnection;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends BaseWebRTCActivity {
     private ImageButton buttonStartStop;
     private TextView server_name;
-
+    private boolean isConnected = false;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -34,16 +34,15 @@ public class MainActivity extends BaseWebRTCActivity {
         localVideoView = findViewById(R.id.local_video_view);
         remoteVideoView = findViewById(R.id.remote_video_view);
         buttonStartStop = findViewById(R.id.button_start_stop);
-        server_name=findViewById(R.id.textView);
+        server_name = findViewById(R.id.textView);
         initializeVideoViews();
         checkAndRequestPermissions();
         buttonStartStop.setOnClickListener(v -> toggleConnection());
     }
-
     @Override
     protected void onPermissionsGranted() {
-        webRTCManager.initialize(getIceServers());
-        webRTCManager.setupLocalMedia(eglBase.getEglBaseContext());
+        initializePeerConnection();
+        connectToSignalingServer();
     }
     @Override
     protected boolean isFrontCameraPreferred() {
@@ -53,27 +52,99 @@ public class MainActivity extends BaseWebRTCActivity {
     @Override
     protected List<PeerConnection.IceServer> getIceServers() {
         server_name.setText("stun:stun.l.google.com:19302");
-        return List.of(
-                PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer()
-        );
+        List<PeerConnection.IceServer> iceServers = new ArrayList<>();
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun2.l.google.com:19302").createIceServer());
+        return iceServers;
+    }
+    @Override
+    protected String getSocketServerUrl() {
+        return getResources().getString(R.string.test_link);
+    }
+    @Override
+    protected String getRoomName() {
+        return "default-room"; // или ваша логика выбора комнаты
+    }
+    @Override
+    protected boolean isOfferer() {
+        return true; // MainActivity создает offer
     }
     private void toggleConnection() {
-        if (webRTCManager.getConnectionState() == PeerConnection.PeerConnectionState.CONNECTED) {
-            webRTCManager.close();
+        if (isConnected) {
+            if (peerConnectionManager != null) {
+                peerConnectionManager.close();
+            }
+            disconnectFromSignalingServer();
+            updateButtonState(false);
         } else {
-            webRTCManager.createOffer();
+            connectToSignalingServer();
+            updateButtonState(true);
         }
+    }
+    private void updateButtonState(boolean connecting) {
+        runOnUiThread(() -> {
+            if (buttonStartStop != null) {
+                //                    buttonStartStop.setText("Connecting...");
+                //                    buttonStartStop.setText("Start");
+                buttonStartStop.setEnabled(!connecting);
+            }
+        });
     }
     @Override
     public void onConnected() {
-        runOnUiThread(() -> Toast.makeText(this, "WebSocket Connected", Toast.LENGTH_SHORT).show());
+        super.onConnected();
+        runOnUiThread(() -> {
+            isConnected = true;
+            if (buttonStartStop != null) {
+//                buttonStartStop.setText("Stop");
+                buttonStartStop.setEnabled(true);
+            }
+            Toast.makeText(this, "WebRTC connected successfully", Toast.LENGTH_SHORT).show();
+        });
     }
     @Override
-    public void onDisconnected() {
-        runOnUiThread(() -> Toast.makeText(this, "WebSocket Disconnected", Toast.LENGTH_SHORT).show());
+    public void onDisconnected(String reason) {
+        super.onDisconnected(reason);
+        runOnUiThread(() -> {
+            isConnected = false;
+            if (buttonStartStop != null) {
+//                buttonStartStop.setText("Start");
+                buttonStartStop.setEnabled(true);
+            }
+            Toast.makeText(this, "Disconnected: " + reason, Toast.LENGTH_SHORT).show();
+        });
     }
     @Override
-    public void onMessage(JSONObject message) {
-        // Обработка сообщений от сервера
+    public void onPeerJoined(String peerId) {
+        super.onPeerJoined(peerId);
+        runOnUiThread(() -> Toast.makeText(this, "Peer joined: " + peerId, Toast.LENGTH_SHORT).show());
+    }
+    @Override
+    public void onOffer(String from, String sdp) {
+        super.onOffer(from, sdp);
+        runOnUiThread(() -> Toast.makeText(this, "Received offer from: " + from, Toast.LENGTH_SHORT).show());
+    }
+    @Override
+    public void onAnswer(String from, String sdp) {
+        super.onAnswer(from, sdp);
+        runOnUiThread(() -> Toast.makeText(this, "Received answer from: " + from, Toast.LENGTH_SHORT).show());
+    }
+    @Override
+    public void onClosed(String reason) {
+        super.onClosed(reason);
+        runOnUiThread(() -> {
+            isConnected = false;
+            if (buttonStartStop != null) {
+//                buttonStartStop.setText("Start");
+                buttonStartStop.setEnabled(true);
+            }
+            Toast.makeText(this, "Signaling closed: " + reason, Toast.LENGTH_SHORT).show();
+        });
+    }
+    @Override
+    public void onRemoteVideoTrack(org.webrtc.VideoTrack videoTrack) {
+        super.onRemoteVideoTrack(videoTrack);
+        runOnUiThread(() -> Toast.makeText(this, "Remote video track received", Toast.LENGTH_SHORT).show());
     }
 }

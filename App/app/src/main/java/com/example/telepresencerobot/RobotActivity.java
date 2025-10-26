@@ -1,37 +1,37 @@
 package com.example.telepresencerobot;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.WindowManager;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.telepresencerobot.base.BaseWebRTCActivity;
 
-import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.webrtc.*;
-import org.java_websocket.*;
+import org.webrtc.PeerConnection;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 
 public class RobotActivity extends BaseWebRTCActivity {
-    static final Logger logger = LoggerFactory.getLogger(RobotActivity.class);
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        setContentView(R.layout.activity_robot);
         remoteVideoView = findViewById(R.id.remote_video_view);
+        initializeVideoViews();
+        checkAndRequestPermissions();
     }
     @Override
     protected void onPermissionsGranted() {
-        webRTCManager.initialize(getIceServers());
-        webRTCManager.setupLocalMedia(eglBase.getEglBaseContext());
+        Log.d("RobotActivity", "Permissions granted, initializing connection");
+        initializePeerConnection();
+        connectToSignalingServer();
     }
     @Override
     protected boolean isFrontCameraPreferred() {
@@ -39,17 +39,48 @@ public class RobotActivity extends BaseWebRTCActivity {
     }
     @Override
     protected List<PeerConnection.IceServer> getIceServers() {
-        return List.of(
-                PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer()
-        );
+        List<PeerConnection.IceServer> iceServers = new ArrayList<>();
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun2.l.google.com:19302").createIceServer());
+
+        return iceServers;
+    }
+    @Override
+    protected String getSocketServerUrl() {
+        return getResources().getString(R.string.test_link);
+    }
+    @Override
+    protected String getRoomName() {
+        return "default-room"; // Такая же комната как в MainActivity
+    }
+    @Override
+    protected boolean isOfferer() {
+        return false;
+    }
+    @Override
+    protected boolean hasLocalVideo() {
+        return false;
     }
     @Override
     public void onConnected() {
+        super.onConnected();
+        runOnUiThread(() -> Toast.makeText(this, "Robot connected - waiting for offer", Toast.LENGTH_SHORT).show());
     }
     @Override
-    public void onDisconnected() {
+    public void onPeerJoined(String peerId) {
+        super.onPeerJoined(peerId);
+        runOnUiThread(() -> Toast.makeText(this, "Peer joined: " + peerId, Toast.LENGTH_SHORT).show());
     }
     @Override
-    public void onMessage(JSONObject message) {
+    public void onOffer(String from, String sdp) {
+        super.onOffer(from, sdp);
+        runOnUiThread(() -> Toast.makeText(this, "Received offer from: " + from, Toast.LENGTH_SHORT).show());
+    }
+
+    @Override
+    public void onRemoteVideoTrack(org.webrtc.VideoTrack videoTrack) {
+        super.onRemoteVideoTrack(videoTrack);
+        runOnUiThread(() -> Toast.makeText(this, "Remote video track received", Toast.LENGTH_SHORT).show());
     }
 }
