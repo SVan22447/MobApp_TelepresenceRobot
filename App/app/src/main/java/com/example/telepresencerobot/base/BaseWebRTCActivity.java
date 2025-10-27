@@ -40,16 +40,39 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        PeerConnectionFactory.initialize(
-                PeerConnectionFactory.InitializationOptions.builder(this)
-                        .createInitializationOptions()
-        );
-        eglBase = EglBase.create();
-        PeerConnectionFactory.Options options = new PeerConnectionFactory.Options();
-        factory = PeerConnectionFactory.builder()
-                .setOptions(options)
-                .createPeerConnectionFactory();
-        signalingClient = new SignalingClient(getSocketServerUrl(), this);
+        try {
+            PeerConnectionFactory.InitializationOptions initializationOptions =
+                    PeerConnectionFactory.InitializationOptions.builder(this)
+                            .setEnableInternalTracer(true)
+                            .setFieldTrials("WebRTC-H264HighProfile/Enabled/")
+                            .createInitializationOptions();
+
+            PeerConnectionFactory.initialize(initializationOptions);
+            eglBase = EglBase.create();
+            if (eglBase == null) {
+                throw new RuntimeException("Failed to create EglBase");
+            }
+            DefaultVideoEncoderFactory encoderFactory = new DefaultVideoEncoderFactory(
+                    eglBase.getEglBaseContext(),
+                    true,
+                    true
+            );
+            DefaultVideoDecoderFactory decoderFactory = new DefaultVideoDecoderFactory(eglBase.getEglBaseContext());
+            PeerConnectionFactory.Options options = new PeerConnectionFactory.Options();
+            factory = PeerConnectionFactory.builder()
+                    .setOptions(options)
+                    .setVideoEncoderFactory(encoderFactory)
+                    .setVideoDecoderFactory(decoderFactory)
+                    .createPeerConnectionFactory();
+
+            if (factory == null) {
+                throw new RuntimeException("Failed to create PeerConnectionFactory");
+            }
+            signalingClient = new SignalingClient(getSocketServerUrl(), this);
+        } catch (Exception e) {
+            Log.e("BaseWebRTCActivity", "Failed to initialize WebRTC", e);
+            Toast.makeText(this, "Failed to initialize video: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
     protected void initializeVideoViews() {
         if (localVideoView != null) {
@@ -77,7 +100,6 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
                 hasLocalVideo(),  // Включаем видео только если есть локальный View
                 hasLocalAudio()  // Включаем аудио только если нужно
         );
-
         peerConnectionManager.createPeer(this);
     }
     protected void checkAndRequestPermissions() {
@@ -162,7 +184,7 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
     }
     @Override
     public void onIceCandidate(IceCandidate candidate) {
-        Log.d("BaseWebRTCActivity", "Sending ICE candidate");
+        Log.d("BaseWebRTCActivity", "Sending ICE candidate: " + candidate.sdpMid + ":" + candidate.sdpMLineIndex);
         signalingClient.sendIce(
                 candidate.sdpMid,
                 candidate.sdpMLineIndex,

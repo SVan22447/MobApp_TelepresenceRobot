@@ -1,7 +1,7 @@
 package com.example.telepresencerobot.websocket;
 
+import android.net.Uri;
 import android.util.Log;
-
 
 import androidx.annotation.NonNull;
 
@@ -53,17 +53,18 @@ public class SignalingClient {
             Log.w("SignalingClient", "Connection attempt already in progress for room: " + roomId);
             return;
         }
-
         if (webSocket != null) {
             webSocket.close(1000, "Changing room");
             webSocket = null;
         }
-
         this.currentRoomId = roomId;
-
-        String url = baseWs + "?room=" + roomId + "&peer=" + id;
+        Uri uri = Uri.parse(baseWs)
+                .buildUpon()
+                .appendQueryParameter("room", roomId)
+                .appendQueryParameter("peer", id)
+                .build();
+        String url = uri.toString();
         Request request = new Request.Builder().url(url).build();
-
         Log.d("SignalingClient", "Connecting to URL: " + url);
         client.newWebSocket(request, new SignalingWebSocketListener());
     }
@@ -74,17 +75,15 @@ public class SignalingClient {
             isConnecting.set(false);
             Log.i("SignalingClient", "WebSocket connection opened to room: " + currentRoomId);
         }
-
         @Override
         public void onMessage(@NonNull WebSocket webSocket, @NonNull String text) {
             try {
+                Log.d("SignalingClient", "Received message: " + text);
                 Envelope envelope = gson.fromJson(text, Envelope.class);
                 if (envelope.from != null && envelope.from.equals(id)) {
                     return; // Игнорируем свои же сообщения
                 }
-
-                Log.d("SignalingClient", "Received message: " + envelope.type + " from " + envelope.from);
-
+                Log.d("SignalingClient", "Processing message: " + envelope.type + " from " + envelope.from);
                 switch (envelope.type) {
                     case "peer-joined":
                         if (envelope.peerId != null) {
@@ -112,17 +111,18 @@ public class SignalingClient {
                     case "error":
                         Log.e("SignalingClient", "Server error: " + envelope.payload);
                         break;
+                    case "peer-left":
+                        Log.d("SignalingClient", "Peer left: " + envelope.peerId);
+                        break;
                 }
             } catch (Exception e) {
                 Log.e("SignalingClient", "Failed to parse message: " + text, e);
             }
         }
-
         @Override
         public void onClosing(@NonNull WebSocket webSocket, int code, @NonNull String reason) {
             Log.w("SignalingClient", "WebSocket closing: " + code + " / " + reason);
         }
-
         @Override
         public void onClosed(@NonNull WebSocket webSocket, int code, @NonNull String reason) {
             SignalingClient.this.webSocket = null;
@@ -130,28 +130,26 @@ public class SignalingClient {
             Log.w("SignalingClient", "WebSocket closed: " + code + " / " + reason);
             listener.onClosed("Connection closed: " + reason);
         }
-
         @Override
         public void onFailure(@NonNull WebSocket webSocket, @NonNull Throwable t, Response response) {
             SignalingClient.this.webSocket = null;
             isConnecting.set(false);
             Log.e("SignalingClient", "WebSocket failure", t);
-            // В Java можно добавить переподключение через Handler если нужно
+            if (response != null) {
+                Log.e("SignalingClient", "Response code: " + response.code() + ", message: " + response.message());
+            }
         }
     }
-
     public void sendOffer(String sdp) {
         send(new Envelope("offer", sdp));
     }
-
     public void sendAnswer(String sdp) {
         send(new Envelope("answer", sdp));
     }
-
     public void sendIce(String mid, int idx, String cand) {
+        Log.d("SignalingClient", "Sending ICE candidate: " + mid + ":" + idx);
         send(new Envelope("ice", new Candidate(mid, idx, cand)));
     }
-
     public void leave() {
         if (webSocket != null) {
             webSocket.close(1000, "User left");
@@ -159,33 +157,28 @@ public class SignalingClient {
         }
         currentRoomId = null;
     }
-
     private void send(Envelope data) {
         if (webSocket == null) {
             Log.w("SignalingClient", "Cannot send message, WebSocket is not active.");
             return;
         }
-
         try {
-            // Дополняем сообщение данными о комнате и отправителе
             data.room = currentRoomId;
             data.from = id;
             String message = gson.toJson(data);
+            Log.d("SignalingClient", "Sending message: " + message);
             webSocket.send(message);
         } catch (Exception e) {
             Log.e("SignalingClient", "Failed to send message", e);
         }
     }
-
     public String getId() {
         return id;
     }
-
     public boolean isConnected() {
         return webSocket != null;
     }
 }
-
 class Envelope {
     String type;
     String room;
@@ -194,23 +187,19 @@ class Envelope {
     String sdp;
     Candidate candidate;
     String payload;
-
     public Envelope(String type, String sdp) {
         this.type = type;
         this.sdp = sdp;
     }
-
     public Envelope(String type, Candidate candidate) {
         this.type = type;
         this.candidate = candidate;
     }
 }
-
 class Candidate {
     String sdpMid;
     Integer sdpMLineIndex;
     String candidate;
-
     public Candidate(String sdpMid, Integer sdpMLineIndex, String candidate) {
         this.sdpMid = sdpMid;
         this.sdpMLineIndex = sdpMLineIndex;
