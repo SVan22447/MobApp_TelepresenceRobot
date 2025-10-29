@@ -46,7 +46,6 @@ dependencies {
     implementation("org.slf4j:slf4j-android:1.7.36")
     implementation("com.github.codecrunchers-x:WebRTC-Android-Library:v1.0.32006")
     implementation("org.java-websocket:Java-WebSocket:1.6.0")
-    implementation("io.socket:socket.io-client:2.1.2")
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
     implementation("com.google.code.gson:gson:2.10.1")
 

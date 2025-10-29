@@ -136,7 +136,7 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
             Log.d("BaseWebRTCActivity", "Peer joined: " + peerId);
             Toast.makeText(this, "Peer joined: " + peerId, Toast.LENGTH_SHORT).show();
             if (isOfferer()) {
-                createOffer();
+                new android.os.Handler().postDelayed(this::createOffer, 1000);
             }
         });
     }
@@ -163,7 +163,7 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
                 SessionDescription remoteSdp = new SessionDescription(
                         SessionDescription.Type.ANSWER, sdp
                 );
-                peerConnectionManager.setRemoteDescription(remoteSdp);
+
             }
         });
     }

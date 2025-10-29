@@ -40,11 +40,11 @@ public class RobotActivity extends BaseWebRTCActivity {
     @Override
     protected List<PeerConnection.IceServer> getIceServers() {
         List<PeerConnection.IceServer> iceServers = new ArrayList<>();
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun4.l.google.com:19302").createIceServer());
         iceServers.add(PeerConnection.IceServer.builder("stun:stun.tagan.ru:3478").createIceServer());
         iceServers.add(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer());
         iceServers.add(PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer());
         iceServers.add(PeerConnection.IceServer.builder("stun:stun.kanet.ru:3478").createIceServer());
-        iceServers.add(PeerConnection.IceServer.builder("stun:stun4.l.google.com:19302").createIceServer());
         iceServers.add(PeerConnection.IceServer.builder("stun:stun.demos.ru:3478").createIceServer());
         iceServers.add(PeerConnection.IceServer.builder("stun:stun.mgn.ru:3478").createIceServer());
         return iceServers;
@@ -58,9 +58,7 @@ public class RobotActivity extends BaseWebRTCActivity {
         return "default-room"; // Такая же комната как в MainActivity
     }
     @Override
-    protected boolean isOfferer() {
-        return false;
-    }
+    protected boolean isOfferer() {return false;}
     @Override
     protected boolean hasLocalVideo() {
         return false;
