@@ -242,6 +242,23 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
             });
         }
     }
+    public void setMicrophoneEnabled(boolean enabled) {
+        if (peerConnectionManager != null) {
+            peerConnectionManager.setAudioEnabled(enabled);
+            updateMicButtonState(enabled);
+        }
+    }
+    public void toggleMicrophone() {
+        if (peerConnectionManager != null) {
+            peerConnectionManager.toggleAudio();
+            updateMicButtonState(peerConnectionManager.isAudioEnabled());
+        }
+    }
+    protected void updateMicButtonState(boolean isEnabled) {}
+    public boolean isMicrophoneEnabled() {
+        return peerConnectionManager != null && peerConnectionManager.isAudioEnabled();
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();

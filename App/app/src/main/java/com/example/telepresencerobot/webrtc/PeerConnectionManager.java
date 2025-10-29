@@ -24,6 +24,7 @@ public class PeerConnectionManager {
     private AudioTrack localAudioTrack;
     private VideoCapturer videoCapturer;
     private SurfaceTextureHelper surfaceHelper;
+    private boolean isAudioEnabled = true;
 
     public interface PeerConnectionListener {
         void onIceCandidate(IceCandidate candidate);
@@ -31,7 +32,6 @@ public class PeerConnectionManager {
         void onDisconnected(String reason);
         void onRemoteVideoTrack(VideoTrack videoTrack);
     }
-
     public PeerConnectionManager(
             Context appContext,
             PeerConnectionFactory factory,
@@ -178,7 +178,6 @@ public class PeerConnectionManager {
             initLocalVideoTrack();
         }
     }
-
     private void initLocalAudioTrack() {
         MediaConstraints audioConstraints = new MediaConstraints();
         audioSource = factory.createAudioSource(audioConstraints);
@@ -188,7 +187,6 @@ public class PeerConnectionManager {
             Log.d("PeerConnectionManager", "Audio track added");
         }
     }
-
     private void initLocalVideoTrack() {
         surfaceHelper = SurfaceTextureHelper.create("CaptureThread", eglCtx);
         videoCapturer = createBestCapturer();
@@ -208,6 +206,22 @@ public class PeerConnectionManager {
         } else {
             Log.w("PeerConnectionManager", "Video capturer could not be created");
         }
+    }
+    public void setAudioEnabled(boolean enabled) {
+        if (localAudioTrack != null) {
+            localAudioTrack.setEnabled(enabled);
+            isAudioEnabled = enabled;
+            Log.d("PeerConnectionManager", "Audio track enabled: " + enabled);
+        } else {
+            Log.w("PeerConnectionManager", "Audio track is null, cannot set enabled to " + enabled);
+        }
+    }
+    public void toggleAudio() {
+        setAudioEnabled(!isAudioEnabled);
+    }
+    geta
+    public boolean isAudioEnabled() {
+        return isAudioEnabled && localAudioTrack != null && localAudioTrack.enabled();
     }
     public void createOffer(final SdpCreateListener listener) {
         MediaConstraints sdpConstraints = new MediaConstraints();

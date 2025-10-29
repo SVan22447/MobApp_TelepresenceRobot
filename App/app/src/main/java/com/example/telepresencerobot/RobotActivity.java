@@ -3,6 +3,7 @@ package com.example.telepresencerobot;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.WindowManager;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
@@ -16,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class RobotActivity extends BaseWebRTCActivity {
+    private ImageView Mic;
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -23,6 +25,7 @@ public class RobotActivity extends BaseWebRTCActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setContentView(R.layout.activity_robot);
+        Mic = findViewById(R.id.Mic);
         remoteVideoView = findViewById(R.id.remote_video_view);
         initializeVideoViews();
         checkAndRequestPermissions();
@@ -62,6 +65,14 @@ public class RobotActivity extends BaseWebRTCActivity {
     @Override
     protected boolean hasLocalVideo() {
         return true;
+    }
+    @Override
+    protected void updateMicButtonState(boolean isEnabled) {
+        runOnUiThread(() -> {
+            if(Mic != null){
+                Mic.setImageAlpha(isEnabled ? 0 : 100);
+            }
+        });
     }
     @Override
     public void onConnected() {

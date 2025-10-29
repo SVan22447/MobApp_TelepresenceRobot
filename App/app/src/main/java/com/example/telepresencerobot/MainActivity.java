@@ -18,6 +18,7 @@ import java.util.List;
 
 public class MainActivity extends BaseWebRTCActivity {
     private ImageButton buttonStartStop;
+    private ImageButton MicButton;
     private TextView server_name;
     private boolean isConnected = false;
     @Override
@@ -35,14 +36,17 @@ public class MainActivity extends BaseWebRTCActivity {
         remoteVideoView = findViewById(R.id.remote_video_view);
         buttonStartStop = findViewById(R.id.button_start_stop);
         server_name = findViewById(R.id.textView);
+        MicButton= findViewById(R.id.MicControl);
         initializeVideoViews();
         checkAndRequestPermissions();
         buttonStartStop.setOnClickListener(v -> toggleConnection());
+        MicButton.setOnClickListener(v -> toggleMicrophone());
     }
     @Override
     protected void onPermissionsGranted() {
         initializePeerConnection();
         connectToSignalingServer();
+        updateMicButtonState(isMicrophoneEnabled());
     }
     @Override
     protected boolean isFrontCameraPreferred() {
@@ -84,6 +88,17 @@ public class MainActivity extends BaseWebRTCActivity {
             updateButtonState(true);
         }
     }
+    @Override
+    protected void updateMicButtonState(boolean isEnabled) {
+        runOnUiThread(() -> {
+//            if (MicButton != null) {
+//                MicButton.setImageAlpha(isEnabled ?
+//                        0 : 100);
+////                GradientDrawable background = (GradientDrawable) MicButton.getBackground();
+//            }
+        });
+    }
+
     private void updateButtonState(boolean connecting) {
         runOnUiThread(() -> {
             if (buttonStartStop != null) {
@@ -102,6 +117,9 @@ public class MainActivity extends BaseWebRTCActivity {
 //                buttonStartStop.setText("Stop");
                 buttonStartStop.setEnabled(true);
             }
+            if (MicButton != null) {
+                MicButton.setEnabled(true);
+            }
             Toast.makeText(this, "WebRTC connected successfully", Toast.LENGTH_SHORT).show();
         });
     }
@@ -110,6 +128,9 @@ public class MainActivity extends BaseWebRTCActivity {
         super.onDisconnected(reason);
         runOnUiThread(() -> {
             isConnected = false;
+            if (MicButton != null) {
+                MicButton.setEnabled(false);
+            }
             if (buttonStartStop != null) {
 //                buttonStartStop.setText("Start");
                 buttonStartStop.setEnabled(true);
