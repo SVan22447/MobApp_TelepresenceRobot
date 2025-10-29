@@ -17,12 +17,17 @@ public class StartActivity extends AppCompatActivity {
         Button modeOne = findViewById(R.id.modeOne);
         Button modeTwo = findViewById(R.id.modeTwo);
         modeOne.setOnClickListener(view -> {
-            Intent mainActivityIntent = new Intent(getApplicationContext(), MainActivity.class);
-            startActivity(mainActivityIntent);
+            Class<?> name=MainActivity.class;
+            IntentStart(name,false);
         });
         modeTwo.setOnClickListener(view -> {
-            Intent mainActivityIntent = new Intent(getApplicationContext(), RobotActivity.class);
-            startActivity(mainActivityIntent);
+            Class<?> name=RobotActivity.class;
+            IntentStart(name,false);
         });
+    }
+    private void IntentStart(Class<?> ClassName,boolean Finish){
+        Intent mainActivityIntent = new Intent(getApplicationContext(), ClassName);
+        startActivity(mainActivityIntent);
+        if(Finish)finish();
     }
 }

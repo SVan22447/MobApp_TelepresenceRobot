@@ -35,7 +35,7 @@ public class RobotActivity extends BaseWebRTCActivity {
     }
     @Override
     protected boolean isFrontCameraPreferred() {
-        return false;
+        return true;
     }
     @Override
     protected List<PeerConnection.IceServer> getIceServers() {
@@ -61,7 +61,7 @@ public class RobotActivity extends BaseWebRTCActivity {
     protected boolean isOfferer() {return false;}
     @Override
     protected boolean hasLocalVideo() {
-        return false;
+        return true;
     }
     @Override
     public void onConnected() {
@@ -79,9 +79,4 @@ public class RobotActivity extends BaseWebRTCActivity {
         runOnUiThread(() -> Toast.makeText(this, "Received offer from: " + from, Toast.LENGTH_SHORT).show());
     }
 
-    @Override
-    public void onRemoteVideoTrack(org.webrtc.VideoTrack videoTrack) {
-        super.onRemoteVideoTrack(videoTrack);
-        runOnUiThread(() -> Toast.makeText(this, "Remote video track received", Toast.LENGTH_SHORT).show());
-    }
 }

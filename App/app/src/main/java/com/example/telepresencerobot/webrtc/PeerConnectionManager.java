@@ -41,15 +41,15 @@ public class PeerConnectionManager {
             VideoSink localSink,
             boolean enableVideo,
             boolean relayOnly) {
-        this.appContext = appContext;
-        this.factory = factory;
-        this.iceServers = iceServers;
-        this.eglCtx = eglCtx;
-        this.remoteSink = remoteSink;  // <-- ДОБАВЬТЕ ЭТО
-        this.localSink = localSink;
-        this.enableVideo = enableVideo;
-        this.relayOnly = relayOnly;
-    }
+                this.appContext = appContext;
+                this.factory = factory;
+                this.iceServers = iceServers;
+                this.eglCtx = eglCtx;
+                this.remoteSink = remoteSink;  // <-- ДОБАВЬТЕ ЭТО
+                this.localSink = localSink;
+                this.enableVideo = enableVideo;
+                this.relayOnly = relayOnly;
+            }
 
     private static class LoggingSdpObserver implements SdpObserver {
         private final String tag;
@@ -116,14 +116,18 @@ public class PeerConnectionManager {
             public void onIceConnectionReceivingChange(boolean receiving) {}
 
             @Override
-            public void onIceGatheringChange(PeerConnection.IceGatheringState state) {
-                Log.d("PeerConnection", "ICE gathering: " + state);
+            public void onIceCandidate(IceCandidate candidate) {
+                Log.d("PeerConnection", "ICE candidate generated: " + candidate.sdpMid + ":" + candidate.sdpMLineIndex);
+                Log.d("PeerConnection", "Candidate: " + candidate.sdp);
+                listener.onIceCandidate(candidate);
             }
 
             @Override
-            public void onIceCandidate(IceCandidate candidate) {
-                Log.d("PeerConnection", "ICE candidate: " + candidate.sdpMid);
-                listener.onIceCandidate(candidate);
+            public void onIceGatheringChange(PeerConnection.IceGatheringState state) {
+                Log.d("PeerConnection", "ICE gathering state: " + state);
+                if (state == PeerConnection.IceGatheringState.COMPLETE) {
+                    Log.d("PeerConnection", "ICE gathering COMPLETE");
+                }
             }
             @Override
             public void onIceCandidatesRemoved(IceCandidate[] candidates) {}
@@ -246,12 +250,13 @@ public class PeerConnectionManager {
         Log.d("PeerConnectionManager", "Setting remote description: " + desc.type);
         pc.setRemoteDescription(new LoggingSdpObserver("setRemote") {
             @Override
+            public void onSetSuccess() {
+                Log.d("PeerConnectionManager", "Successfully set remote description");
+            }
+            @Override
             public void onSetFailure(String error) {
                 Log.e("PeerConnectionManager", "Set remote description failed: " + error);
-                if (error.contains("Failed to set remote video description")) {
-                    Log.w("PeerConnectionManager", "Trying to set remote description with relaxed constraints");
-                    setRemoteDescriptionWithRelaxedConstraints(desc);
-                }
+                setRemoteDescriptionWithRelaxedConstraints(desc);
             }
         }, desc);
     }

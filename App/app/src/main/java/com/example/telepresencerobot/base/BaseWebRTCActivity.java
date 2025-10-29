@@ -27,6 +27,7 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
     protected SurfaceViewRenderer remoteVideoView;
     protected EglBase eglBase;
     protected PeerConnectionFactory factory;
+
     private final ActivityResultLauncher<String[]> requestMultiplePermissionsLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(),
                     permissions -> {
@@ -46,12 +47,8 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
                             .setEnableInternalTracer(true)
                             .setFieldTrials("WebRTC-H264HighProfile/Enabled/")
                             .createInitializationOptions();
-
             PeerConnectionFactory.initialize(initializationOptions);
             eglBase = EglBase.create();
-            if (eglBase == null) {
-                throw new RuntimeException("Failed to create EglBase");
-            }
             DefaultVideoEncoderFactory encoderFactory = new DefaultVideoEncoderFactory(
                     eglBase.getEglBaseContext(),
                     true,
@@ -86,8 +83,9 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
         }
     }
     protected void initializePeerConnection() {
-        VideoSink localSink = localVideoView != null ? localVideoView : VideoFrame::release;
-        VideoSink remoteSink = remoteVideoView != null ? remoteVideoView : VideoFrame::release;
+        // ИСПРАВЛЕННЫЙ КОД: Не используем VideoFrame::release
+        VideoSink localSink = localVideoView; // Может быть null
+        VideoSink remoteSink = remoteVideoView; // Может быть null
         Log.d("BaseWebRTCActivity", "Initializing PeerConnection - Local video: " + (localVideoView != null) +
                 ", Remote video: " + (remoteVideoView != null));
         peerConnectionManager = new PeerConnectionManager(
@@ -96,9 +94,9 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
                 getIceServers(),
                 eglBase.getEglBaseContext(),
                 remoteSink,
-                localSink,
-                hasLocalVideo(),  // Включаем видео только если есть локальный View
-                hasLocalAudio()  // Включаем аудио только если нужно
+                localSink,  // Теперь передаем null если нет локального view
+                hasLocalVideo(),
+                false  // relayOnly
         );
         peerConnectionManager.createPeer(this);
     }
@@ -124,12 +122,14 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
     protected abstract String getSocketServerUrl();
     protected abstract String getRoomName();
     protected abstract boolean isOfferer();
+
     protected boolean hasLocalVideo() {
         return localVideoView != null;
     }
     protected boolean hasLocalAudio() {
         return true; // По умолчанию включаем аудио, можно переопределить
     }
+
     @Override
     public void onPeerJoined(String peerId) {
         runOnUiThread(() -> {
@@ -163,7 +163,7 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
                 SessionDescription remoteSdp = new SessionDescription(
                         SessionDescription.Type.ANSWER, sdp
                 );
-
+                peerConnectionManager.setRemoteDescription(remoteSdp);
             }
         });
     }
