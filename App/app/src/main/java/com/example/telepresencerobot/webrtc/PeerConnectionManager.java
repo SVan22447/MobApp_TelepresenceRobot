@@ -1,6 +1,9 @@
 package com.example.telepresencerobot.webrtc;
 
 import android.content.Context;
+import android.media.AudioManager;
+import android.media.MediaActionSound;
+import android.provider.MediaStore;
 import android.util.Log;
 
 import org.webrtc.*;
@@ -45,7 +48,7 @@ public class PeerConnectionManager {
                 this.factory = factory;
                 this.iceServers = iceServers;
                 this.eglCtx = eglCtx;
-                this.remoteSink = remoteSink;  // <-- ДОБАВЬТЕ ЭТО
+                this.remoteSink = remoteSink;
                 this.localSink = localSink;
                 this.enableVideo = enableVideo;
                 this.relayOnly = relayOnly;
@@ -53,21 +56,17 @@ public class PeerConnectionManager {
 
     private static class LoggingSdpObserver implements SdpObserver {
         private final String tag;
-
         LoggingSdpObserver(String tag) {
             this.tag = tag;
         }
-
         @Override
         public void onCreateSuccess(SessionDescription desc) {
             Log.d(tag, "onCreateSuccess: " + desc.type);
         }
-
         @Override
         public void onSetSuccess() {
             Log.d(tag, "onSetSuccess");
         }
-
         @Override
         public void onCreateFailure(String error) {
             Log.e(tag, "onCreateFailure: " + error);
@@ -78,7 +77,6 @@ public class PeerConnectionManager {
             Log.e(tag, "onSetFailure: " + error);
         }
     }
-
     public void createPeer(final PeerConnectionListener listener) {
         PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(iceServers);
         rtcConfig.sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN;
@@ -95,7 +93,6 @@ public class PeerConnectionManager {
             public void onSignalingChange(PeerConnection.SignalingState newState) {
                 Log.d("PeerConnection", "Signaling state: " + newState);
             }
-
             @Override
             public void onIceConnectionChange(PeerConnection.IceConnectionState newState) {
                 Log.d("PeerConnectionManager", "ICE connection change: " + newState);
@@ -114,14 +111,12 @@ public class PeerConnectionManager {
             }
             @Override
             public void onIceConnectionReceivingChange(boolean receiving) {}
-
             @Override
             public void onIceCandidate(IceCandidate candidate) {
                 Log.d("PeerConnection", "ICE candidate generated: " + candidate.sdpMid + ":" + candidate.sdpMLineIndex);
                 Log.d("PeerConnection", "Candidate: " + candidate.sdp);
                 listener.onIceCandidate(candidate);
             }
-
             @Override
             public void onIceGatheringChange(PeerConnection.IceGatheringState state) {
                 Log.d("PeerConnection", "ICE gathering state: " + state);
@@ -131,7 +126,6 @@ public class PeerConnectionManager {
             }
             @Override
             public void onIceCandidatesRemoved(IceCandidate[] candidates) {}
-
             @Override
             public void onAddStream(MediaStream stream) {
                 Log.d("PeerConnection", "Add stream: " + stream.getId());
@@ -140,10 +134,8 @@ public class PeerConnectionManager {
                     listener.onRemoteVideoTrack(remoteVideoTrack);
                 }
             }
-
             @Override
             public void onRemoveStream(MediaStream stream) {}
-
             @Override
             public void onDataChannel(DataChannel dc) {}
 
@@ -172,7 +164,6 @@ public class PeerConnectionManager {
         if (pc == null) {
             throw new IllegalStateException("PeerConnection create failed.");
         }
-
         initLocalAudioTrack();
         if (enableVideo) {
             initLocalVideoTrack();
@@ -198,7 +189,6 @@ public class PeerConnectionManager {
             if (localSink != null) {
                 localVideoTrack.addSink(localSink);
             }
-
             if (pc != null) {
                 pc.addTrack(localVideoTrack);
                 Log.d("PeerConnectionManager", "Video track added");
@@ -219,7 +209,6 @@ public class PeerConnectionManager {
     public void toggleAudio() {
         setAudioEnabled(!isAudioEnabled);
     }
-    geta
     public boolean isAudioEnabled() {
         return isAudioEnabled && localAudioTrack != null && localAudioTrack.enabled();
     }

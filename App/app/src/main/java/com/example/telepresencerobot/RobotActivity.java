@@ -1,5 +1,6 @@
 package com.example.telepresencerobot;
 
+
 import android.os.Bundle;
 import android.util.Log;
 import android.view.WindowManager;
@@ -22,8 +23,16 @@ public class RobotActivity extends BaseWebRTCActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        getWindow().addFlags(
+                WindowManager.LayoutParams.FLAG_FULLSCREEN
+                        | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                        | WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+                        | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                        | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+        this.getWindow().getDecorView().setSystemUiVisibility(
+                ImageView.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                | ImageView.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                | ImageView.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         setContentView(R.layout.activity_robot);
         Mic = findViewById(R.id.Mic);
         remoteVideoView = findViewById(R.id.remote_video_view);

@@ -61,7 +61,6 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
                     .setVideoEncoderFactory(encoderFactory)
                     .setVideoDecoderFactory(decoderFactory)
                     .createPeerConnectionFactory();
-
             if (factory == null) {
                 throw new RuntimeException("Failed to create PeerConnectionFactory");
             }
@@ -83,9 +82,8 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
         }
     }
     protected void initializePeerConnection() {
-        // ИСПРАВЛЕННЫЙ КОД: Не используем VideoFrame::release
-        VideoSink localSink = localVideoView; // Может быть null
-        VideoSink remoteSink = remoteVideoView; // Может быть null
+        VideoSink localSink = localVideoView;
+        VideoSink remoteSink = remoteVideoView;
         Log.d("BaseWebRTCActivity", "Initializing PeerConnection - Local video: " + (localVideoView != null) +
                 ", Remote video: " + (remoteVideoView != null));
         peerConnectionManager = new PeerConnectionManager(
@@ -96,7 +94,7 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
                 remoteSink,
                 localSink,  // Теперь передаем null если нет локального view
                 hasLocalVideo(),
-                false  // relayOnly
+                false
         );
         peerConnectionManager.createPeer(this);
     }
@@ -258,13 +256,12 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
     public boolean isMicrophoneEnabled() {
         return peerConnectionManager != null && peerConnectionManager.isAudioEnabled();
     }
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
         Log.d("BaseWebRTCActivity", "Destroying activity");
-
         if (peerConnectionManager != null) {
+            peerConnectionManager.dispose();
             peerConnectionManager.close();
         }
         if (signalingClient != null) {
@@ -282,5 +279,6 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
         if (factory != null) {
             factory.dispose();
         }
+        finish();
     }
 }
