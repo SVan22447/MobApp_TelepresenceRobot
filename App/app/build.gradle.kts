@@ -46,6 +46,6 @@ dependencies {
     implementation("org.java-websocket:Java-WebSocket:1.6.0")
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
     implementation("com.google.code.gson:gson:2.10.1")
-
+    implementation("com.github.mik3y:usb-serial-for-android:3.9.0")
 }
 

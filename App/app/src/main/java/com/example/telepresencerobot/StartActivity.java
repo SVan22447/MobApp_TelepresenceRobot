@@ -16,18 +16,16 @@ public class StartActivity extends AppCompatActivity {
         setContentView(R.layout.activity_start);
         Button modeOne = findViewById(R.id.modeOne);
         Button modeTwo = findViewById(R.id.modeTwo);
-        modeOne.setOnClickListener(view -> {
-            Class<?> name=MainActivity.class;
-            IntentStart(name,false);
-        });
-        modeTwo.setOnClickListener(view -> {
-            Class<?> name=RobotActivity.class;
-            IntentStart(name,false);
-        });
+        Button test_button = findViewById(R.id.test_button);
+        ButtonCreate(modeOne, MainActivity.class,false);
+        ButtonCreate(modeTwo, RobotActivity.class,false);
+        ButtonCreate(test_button, TestUart2.class,false);
     }
-    private void IntentStart(Class<?> ClassName,boolean Finish){
-        Intent mainActivityIntent = new Intent(getApplicationContext(), ClassName);
-        startActivity(mainActivityIntent);
-        if(Finish)finish();
+    private void ButtonCreate(Button _but,Class<?> ClassName,boolean Finish){
+        _but.setOnClickListener(view -> {
+            Intent mainActivityIntent = new Intent(getApplicationContext(), ClassName);
+            startActivity(mainActivityIntent);
+            if(Finish)finish();
+        });
     }
 }
