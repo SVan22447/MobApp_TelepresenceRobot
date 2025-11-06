@@ -120,7 +120,6 @@ public class MainActivity extends BaseWebRTCActivity {
             JSONObject command = new JSONObject();
             command.put("type", "mic");
             command.put("status", status);
-            command.put("timestamp", System.currentTimeMillis());
             sendRobotCommand(command);
         } catch (JSONException e) {
             Log.e("RobotControl", "Error creating command", e);
@@ -133,7 +132,6 @@ public class MainActivity extends BaseWebRTCActivity {
             command.put("type", "movement");
             command.put("direction", direction);
             command.put("action", action);
-            command.put("timestamp", System.currentTimeMillis());
             sendRobotCommand(command);
         } catch (JSONException e) {
             Log.e("RobotControl", "Error creating command", e);
