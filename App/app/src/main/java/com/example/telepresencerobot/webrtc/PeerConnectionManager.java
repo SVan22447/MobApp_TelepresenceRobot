@@ -46,7 +46,7 @@ public class PeerConnectionManager {
     private SurfaceTextureHelper surfaceHelper;
     private boolean isAudioEnabled = true;
     private DataChannel dataChannel;
-
+    private final boolean isOfferer;
     public interface PeerConnectionListener {
         void onIceCandidate(IceCandidate candidate);
         void onConnected();
@@ -65,7 +65,8 @@ public class PeerConnectionManager {
             VideoSink remoteSink,
             VideoSink localSink,
             boolean enableVideo,
-            boolean relayOnly) {
+            boolean relayOnly,
+            boolean isOfferer) {
                 this.appContext = appContext;
                 this.factory = factory;
                 this.iceServers = iceServers;
@@ -74,8 +75,8 @@ public class PeerConnectionManager {
                 this.localSink = localSink;
                 this.enableVideo = enableVideo;
                 this.relayOnly = relayOnly;
+                this.isOfferer = isOfferer;
             }
-
     private static class LoggingSdpObserver implements SdpObserver {
         private final String tag;
         LoggingSdpObserver(String tag) {
@@ -155,8 +156,32 @@ public class PeerConnectionManager {
             @Override
             public void onRemoveStream(MediaStream stream) {}
             @Override
-            public void onDataChannel(DataChannel dc) {}
-
+            public void onDataChannel(DataChannel dc) {
+                Log.d("PeerConnection", "onDataChannel: " + dc.label());
+                dataChannel = dc;
+                dataChannel.registerObserver(new DataChannel.Observer() {
+                    @Override
+                    public void onBufferedAmountChange(long amount) {}
+                    @Override
+                    public void onStateChange() {
+                        Log.d("DataChannel", "Incoming channel state: " + dataChannel.state());
+                        if (dcListener != null) {
+                            dcListener.onDataChannelStateChange(dataChannel.state());
+                        }
+                    }
+                    @Override
+                    public void onMessage(DataChannel.Buffer buffer) {
+                        if (!buffer.binary) {
+                            byte[] bytes = new byte[buffer.data.remaining()];
+                            buffer.data.get(bytes);
+                            String message = new String(bytes);
+                            if (dcListener != null) {
+                                dcListener.onDataChannelMessage(message);
+                            }
+                        }
+                    }
+                });
+            }
             @Override
             public void onRenegotiationNeeded() {
                 Log.d("PeerConnection", "Renegotiation needed");
@@ -184,36 +209,39 @@ public class PeerConnectionManager {
         if (enableVideo) {
             initLocalVideoTrack();
         }
-        DataChannel.Init init = new DataChannel.Init();
-        init.ordered = true;
-        init.negotiated = false;
-        dataChannel = pc.createDataChannel("robotControl", init);
-        dataChannel.registerObserver(new DataChannel.Observer() {
-            @Override
-            public void onBufferedAmountChange(long amount) {}
-            @Override
-            public void onStateChange() {
-                Log.d("DataChannel", "State: " + dataChannel.state());
-                if (dcListener != null) {
-                    dcListener.onDataChannelStateChange(dataChannel.state());
-                }
-            }
-            @Override
-            public void onMessage(DataChannel.Buffer buffer) {
-                if (buffer.binary) {
-                    ByteBuffer data = buffer.data;
-                    byte[] bytes = new byte[data.remaining()];
-                    data.get(bytes);
-                } else {
-                    byte[] bytes = new byte[buffer.data.remaining()];
-                    buffer.data.get(bytes);
-                    String message = new String(bytes);
+        if (isOfferer()) {
+            DataChannel.Init init = new DataChannel.Init();
+            init.ordered = true;
+            init.negotiated = false;
+            dataChannel = pc.createDataChannel("robotControl", init);
+            dataChannel.registerObserver(new DataChannel.Observer() {
+                @Override
+                public void onBufferedAmountChange(long amount) {}
+
+                @Override
+                public void onStateChange() {
+                    Log.d("DataChannel", "Outgoing channel state: " + dataChannel.state());
                     if (dcListener != null) {
-                        dcListener.onDataChannelMessage(message);
+                        dcListener.onDataChannelStateChange(dataChannel.state());
                     }
                 }
-            }
-        });
+
+                @Override
+                public void onMessage(DataChannel.Buffer buffer) {
+                    if (!buffer.binary) {
+                        byte[] bytes = new byte[buffer.data.remaining()];
+                        buffer.data.get(bytes);
+                        String message = new String(bytes);
+                        if (dcListener != null) {
+                            dcListener.onDataChannelMessage(message);
+                        }
+                    }
+                }
+            });
+        }
+    }
+    private boolean isOfferer() {
+        return true;
     }
     public void sendData(String data) {
         if (dataChannel != null && dataChannel.state() == DataChannel.State.OPEN) {

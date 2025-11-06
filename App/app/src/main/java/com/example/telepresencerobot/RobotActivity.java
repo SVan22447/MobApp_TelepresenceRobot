@@ -28,7 +28,6 @@ public class RobotActivity extends BaseWebRTCActivity {
 //    private SerialInputOutputManager usbIoManager;
 //    private BroadcastReceiver broadcastReceiver;
     private boolean connected = false;
-    private boolean test__;
     private Button TestBut;
     private ImageView Mic;
     @Override
@@ -58,6 +57,7 @@ public class RobotActivity extends BaseWebRTCActivity {
 //            return;
 //        }
         Mic = findViewById(R.id.Mic);
+        Mic.setImageAlpha(0);
         TestBut = findViewById(R.id.test_);
         remoteVideoView = findViewById(R.id.remote_video_view);
         initializeVideoViews();
@@ -95,15 +95,17 @@ public class RobotActivity extends BaseWebRTCActivity {
     }
     @Override
     protected boolean isOfferer() {return false;}
+
     @Override
     protected void handleRobotData(String data) {
         try {
             JSONObject robotData = new JSONObject(data);
             String type = robotData.getString("type");
-            getMove(robotData);
-//            if ("movement".equals(type)) {
-//                robotMovement(robotData);
-//            }
+            if ("movement".equals(type)) {
+                getMove(robotData);
+            }else if("mic".equals(type)){
+                updateMicButtonState("true".equals(robotData.getString("status")));
+            }
         } catch (JSONException e) {
             Log.e("RobotControl", "Error parsing robot data", e);
         }
@@ -121,7 +123,7 @@ public class RobotActivity extends BaseWebRTCActivity {
     protected void updateMicButtonState(boolean isEnabled) {
         runOnUiThread(() -> {
             if(Mic != null){
-                Mic.setImageAlpha(isEnabled ? 0 : 100);
+                Mic.setImageAlpha(isEnabled ? 0 : 255);
             }
         });
     }
@@ -133,25 +135,17 @@ public class RobotActivity extends BaseWebRTCActivity {
     @Override
     public void onPeerJoined(String peerId) {
         super.onPeerJoined(peerId);
-        runOnUiThread(() -> Toast.makeText(this, "Peer joined: " + peerId, Toast.LENGTH_SHORT).show());
     }
     @Override
     public void onOffer(String from, String sdp) {
         super.onOffer(from, sdp);
-        runOnUiThread(() -> Toast.makeText(this, "Received offer from: " + from, Toast.LENGTH_SHORT).show());
     }
     private void getMove(JSONObject Move){
-        if (test__) {
-            setImage(true);
-            test__=false;
-        }else{
-            setImage(false);
-            test__=true;
-        }
-    }
-    private void setImage(boolean set) {
-        if (Mic != null) {
-            Mic.setImageAlpha(set ? 0 : 100);
+        try {
+            Toast.makeText(this, "Get the "+Move.getString("direction")
+                    +"_"+Move.getString("action"), Toast.LENGTH_SHORT).show();
+        }catch(JSONException e){
+            Log.e("RobotControl", "Error getting command", e);
         }
     }
 //    private void connect() {

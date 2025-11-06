@@ -3,6 +3,7 @@ package com.example.telepresencerobot;
 import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.WindowManager;
 import android.widget.ImageButton;
 import android.widget.TextView;
@@ -52,10 +53,10 @@ public class MainActivity extends BaseWebRTCActivity {
 
         initializeVideoViews();
         checkAndRequestPermissions();
-        btn_up.setOnClickListener(v -> sendMovementCommand("FORWARD"));
-        btn_down.setOnClickListener(v -> sendMovementCommand("BACKWARD"));
-        btn_left.setOnClickListener(v -> sendMovementCommand("LEFT"));
-        btn_right.setOnClickListener(v -> sendMovementCommand("RIGHT"));
+        setupMovementButton(btn_up, "FORWARD");
+        setupMovementButton(btn_down, "BACKWARD");
+        setupMovementButton(btn_left, "LEFT");
+        setupMovementButton(btn_right, "RIGHT");
         buttonStartStop.setOnClickListener(v -> toggleConnection());
         MicButton.setOnClickListener(v -> toggleMicrophone());
     }
@@ -91,6 +92,20 @@ public class MainActivity extends BaseWebRTCActivity {
     protected String getRoomName() {
         return "default-room";
     }
+    @SuppressLint("ClickableViewAccessibility")
+    private void setupMovementButton(ImageButton button, String direction) {
+        button.setOnTouchListener((v, event) -> {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    sendMovementCommand(direction, "press");
+                    return true;
+                case MotionEvent.ACTION_UP:
+                    sendMovementCommand(direction, "release");
+                    return true;
+            }
+            return false;
+        });
+    }
     @Override
     protected boolean isOfferer() {return true;}
 
@@ -98,16 +113,26 @@ public class MainActivity extends BaseWebRTCActivity {
     protected void handleRobotData(String data) {}
     @Override
     protected void onDataChannelConnected() {
-        runOnUiThread(() -> {
-            Toast.makeText(this, "DataChannel connected", Toast.LENGTH_SHORT).show();
-            enableControls(true);
-        });
+        runOnUiThread(() -> enableControls(true));
     }
-    private void sendMovementCommand(String direction) {
+    private void sendMicStatus(boolean status){
         try {
             JSONObject command = new JSONObject();
+            command.put("type", "mic");
+            command.put("status", status);
+            command.put("timestamp", System.currentTimeMillis());
+            sendRobotCommand(command);
+        } catch (JSONException e) {
+            Log.e("RobotControl", "Error creating command", e);
+        }
+    }
+    private void sendMovementCommand(String direction,String action) {
+        try {
+            JSONObject command = new JSONObject();
+            Toast.makeText(this, "Command send " + direction, Toast.LENGTH_SHORT).show();
             command.put("type", "movement");
             command.put("direction", direction);
+            command.put("action", action);
             command.put("timestamp", System.currentTimeMillis());
             sendRobotCommand(command);
         } catch (JSONException e) {
@@ -129,6 +154,7 @@ public class MainActivity extends BaseWebRTCActivity {
     @Override
     protected void updateMicButtonState(boolean isEnabled) {
         runOnUiThread(() -> {
+            sendMicStatus(isEnabled);
 //            if (MicButton != null) {
 //                MicButton.setImageAlpha(isEnabled ?
 //                        0 : 100);
@@ -179,17 +205,14 @@ public class MainActivity extends BaseWebRTCActivity {
     @Override
     public void onPeerJoined(String peerId) {
         super.onPeerJoined(peerId);
-        runOnUiThread(() -> Toast.makeText(this, "Peer joined: " + peerId, Toast.LENGTH_SHORT).show());
     }
     @Override
     public void onOffer(String from, String sdp) {
         super.onOffer(from, sdp);
-        runOnUiThread(() -> Toast.makeText(this, "Received offer from: " + from, Toast.LENGTH_SHORT).show());
     }
     @Override
     public void onAnswer(String from, String sdp) {
         super.onAnswer(from, sdp);
-        runOnUiThread(() -> Toast.makeText(this, "Received answer from: " + from, Toast.LENGTH_SHORT).show());
     }
     @Override
     public void onClosed(String reason) {

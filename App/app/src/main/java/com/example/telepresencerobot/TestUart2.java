@@ -1,28 +1,20 @@
 package com.example.telepresencerobot;
 
-import android.content.Context;
-import android.hardware.usb.UsbManager;
 import android.os.Bundle;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
-
-import com.hoho.android.usbserial.driver.UsbSerialDriver;
-import com.hoho.android.usbserial.driver.UsbSerialProber;
-
-import java.util.List;
 
 public class TestUart2 extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.uart_test);
-        Toolbar toolbar = findViewById(R.id.toolbar);
-        UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
-        List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager);
-        if (availableDrivers.isEmpty()) {
-            return;
-        }
+//        setContentView(R.layout.uart_test);
+//        Toolbar toolbar = findViewById(R.id.toolbar);
+//        UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
+//        List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager);
+//        if (availableDrivers.isEmpty()) {
+//            return;
+//        }
 //        // Open a connection to the first available driver.
 //        UsbSerialDriver driver = availableDrivers.get(0);
 //        UsbDeviceConnection connection = manager.openDevice(driver.getDevice());

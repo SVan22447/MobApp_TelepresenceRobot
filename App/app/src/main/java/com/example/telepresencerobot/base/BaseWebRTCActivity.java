@@ -97,7 +97,8 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
                 remoteSink,
                 localSink,  // Теперь передаем null если нет локального view
                 hasLocalVideo(),
-                false
+                false,
+                isOfferer()
         );
         peerConnectionManager.createPeer(this, this);
     }
@@ -155,8 +156,6 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
     @Override
     public void onPeerJoined(String peerId) {
         runOnUiThread(() -> {
-            Log.d("BaseWebRTCActivity", "Peer joined: " + peerId);
-            Toast.makeText(this, "Peer joined: " + peerId, Toast.LENGTH_SHORT).show();
             if (isOfferer()) {
                 new android.os.Handler().postDelayed(this::createOffer, 1000);
             }
@@ -165,8 +164,6 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
     @Override
     public void onOffer(String from, String sdp) {
         runOnUiThread(() -> {
-            Log.d("BaseWebRTCActivity", "Received offer from: " + from);
-            Toast.makeText(this, "Received offer from: " + from, Toast.LENGTH_SHORT).show();
             if (peerConnectionManager != null) {
                 SessionDescription remoteSdp = new SessionDescription(
                         SessionDescription.Type.OFFER, sdp
@@ -180,7 +177,6 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
     public void onAnswer(String from, String sdp) {
         runOnUiThread(() -> {
             Log.d("BaseWebRTCActivity", "Received answer from: " + from);
-            Toast.makeText(this, "Received answer from: " + from, Toast.LENGTH_SHORT).show();
             if (peerConnectionManager != null) {
                 SessionDescription remoteSdp = new SessionDescription(
                         SessionDescription.Type.ANSWER, sdp
@@ -200,7 +196,6 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
     @Override
     public void onClosed(String reason) {
         runOnUiThread(() -> {
-            Log.d("BaseWebRTCActivity", "Connection closed: " + reason);
             Toast.makeText(this, "Connection closed: " + reason, Toast.LENGTH_SHORT).show();
         });
     }
@@ -230,8 +225,6 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
     @Override
     public void onRemoteVideoTrack(VideoTrack videoTrack) {
         runOnUiThread(() -> {
-            Log.d("BaseWebRTCActivity", "Remote video track received");
-            Toast.makeText(this, "Remote video track received", Toast.LENGTH_SHORT).show();
             if (remoteVideoView != null) {
                 videoTrack.addSink(remoteVideoView);
             }
@@ -281,7 +274,6 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
             peerConnectionManager.sendData(command);
         }
     }
-
     public void sendRobotCommand(JSONObject jsonCommand) {
         if (peerConnectionManager != null) {
             peerConnectionManager.sendData(jsonCommand.toString());
