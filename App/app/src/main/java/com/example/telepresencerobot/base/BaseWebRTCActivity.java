@@ -14,13 +14,16 @@ import androidx.core.content.ContextCompat;
 import com.example.telepresencerobot.webrtc.PeerConnectionManager;
 import com.example.telepresencerobot.websocket.SignalingClient;
 
+import org.json.JSONObject;
 import org.webrtc.*;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public abstract class BaseWebRTCActivity extends AppCompatActivity
-        implements SignalingClient.Listener, PeerConnectionManager.PeerConnectionListener {
+        implements SignalingClient.Listener,
+        PeerConnectionManager.PeerConnectionListener,
+        PeerConnectionManager.DataChannelListener {
     protected PeerConnectionManager peerConnectionManager;
     protected SignalingClient signalingClient;
     protected SurfaceViewRenderer localVideoView;
@@ -96,7 +99,25 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
                 hasLocalVideo(),
                 false
         );
-        peerConnectionManager.createPeer(this);
+        peerConnectionManager.createPeer(this, this);
+    }
+    @Override
+    public void onDataChannelMessage(String message) {
+        runOnUiThread(() -> {
+            Log.d("BaseWebRTCActivity", "Received data channel message: " + message);
+            handleRobotData(message);
+        });
+    }
+    @Override
+    public void onDataChannelStateChange(DataChannel.State state) {
+        runOnUiThread(() -> {
+            Log.d("BaseWebRTCActivity", "DataChannel state: " + state);
+            if (state == DataChannel.State.OPEN) {
+                onDataChannelConnected();
+            } else if (state == DataChannel.State.CLOSED) {
+                onDataChannelDisconnected();
+            }
+        });
     }
     protected void checkAndRequestPermissions() {
         List<String> permissionsToRequest = new ArrayList<>();
@@ -120,6 +141,9 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
     protected abstract String getSocketServerUrl();
     protected abstract String getRoomName();
     protected abstract boolean isOfferer();
+    protected abstract void handleRobotData(String data);
+    protected abstract void onDataChannelConnected();
+    protected abstract void onDataChannelDisconnected();
 
     protected boolean hasLocalVideo() {
         return localVideoView != null;
@@ -250,6 +274,17 @@ public abstract class BaseWebRTCActivity extends AppCompatActivity
         if (peerConnectionManager != null) {
             peerConnectionManager.toggleAudio();
             updateMicButtonState(peerConnectionManager.isAudioEnabled());
+        }
+    }
+    public void sendRobotCommand(String command) {
+        if (peerConnectionManager != null) {
+            peerConnectionManager.sendData(command);
+        }
+    }
+
+    public void sendRobotCommand(JSONObject jsonCommand) {
+        if (peerConnectionManager != null) {
+            peerConnectionManager.sendData(jsonCommand.toString());
         }
     }
     protected void updateMicButtonState(boolean isEnabled) {}

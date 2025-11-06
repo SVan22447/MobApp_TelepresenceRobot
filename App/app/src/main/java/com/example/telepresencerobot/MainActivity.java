@@ -2,6 +2,7 @@ package com.example.telepresencerobot;
 
 import android.annotation.SuppressLint;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.WindowManager;
 import android.widget.ImageButton;
 import android.widget.TextView;
@@ -11,6 +12,8 @@ import androidx.activity.EdgeToEdge;
 
 import com.example.telepresencerobot.base.BaseWebRTCActivity;
 
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.webrtc.PeerConnection;
 
 import java.util.ArrayList;
@@ -19,6 +22,10 @@ import java.util.List;
 public class MainActivity extends BaseWebRTCActivity {
     private ImageButton buttonStartStop;
     private ImageButton MicButton;
+    private ImageButton btn_up;
+    private ImageButton btn_down;
+    private ImageButton btn_left;
+    private ImageButton btn_right;
     private TextView server_name;
     private boolean isConnected = false;
     @Override
@@ -32,13 +39,23 @@ public class MainActivity extends BaseWebRTCActivity {
                         | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
                         | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
         setContentView(R.layout.activity_main);
+
         localVideoView = findViewById(R.id.local_video_view);
         remoteVideoView = findViewById(R.id.remote_video_view);
         buttonStartStop = findViewById(R.id.button_start_stop);
+        btn_up= findViewById(R.id.upButton_);
+        btn_down= findViewById(R.id.downButton_);
+        btn_left= findViewById(R.id.leftButton_);
+        btn_right= findViewById(R.id.rightButton_);
         server_name = findViewById(R.id.textView);
         MicButton= findViewById(R.id.MicControl);
+
         initializeVideoViews();
         checkAndRequestPermissions();
+        btn_up.setOnClickListener(v -> sendMovementCommand("FORWARD"));
+        btn_down.setOnClickListener(v -> sendMovementCommand("BACKWARD"));
+        btn_left.setOnClickListener(v -> sendMovementCommand("LEFT"));
+        btn_right.setOnClickListener(v -> sendMovementCommand("RIGHT"));
         buttonStartStop.setOnClickListener(v -> toggleConnection());
         MicButton.setOnClickListener(v -> toggleMicrophone());
     }
@@ -72,10 +89,31 @@ public class MainActivity extends BaseWebRTCActivity {
     }
     @Override
     protected String getRoomName() {
-        return "default-room"; // или ваша логика выбора комнаты
+        return "default-room";
     }
     @Override
     protected boolean isOfferer() {return true;}
+
+    @Override
+    protected void handleRobotData(String data) {}
+    @Override
+    protected void onDataChannelConnected() {
+        runOnUiThread(() -> {
+            Toast.makeText(this, "DataChannel connected", Toast.LENGTH_SHORT).show();
+            enableControls(true);
+        });
+    }
+    private void sendMovementCommand(String direction) {
+        try {
+            JSONObject command = new JSONObject();
+            command.put("type", "movement");
+            command.put("direction", direction);
+            command.put("timestamp", System.currentTimeMillis());
+            sendRobotCommand(command);
+        } catch (JSONException e) {
+            Log.e("RobotControl", "Error creating command", e);
+        }
+    }
     private void toggleConnection() {
         if (isConnected) {
             if (peerConnectionManager != null) {
@@ -169,5 +207,18 @@ public class MainActivity extends BaseWebRTCActivity {
     public void onRemoteVideoTrack(org.webrtc.VideoTrack videoTrack) {
         super.onRemoteVideoTrack(videoTrack);
         runOnUiThread(() -> Toast.makeText(this, "Remote video track received", Toast.LENGTH_SHORT).show());
+    }
+    private void enableControls(boolean enabled) {
+        btn_up.setEnabled(enabled);
+        btn_down.setEnabled(enabled);
+        btn_left.setEnabled(enabled);
+        btn_right.setEnabled(enabled);
+    }
+    @Override
+    protected void onDataChannelDisconnected() {
+        runOnUiThread(() -> {
+            Toast.makeText(this, "DataChannel disconnected", Toast.LENGTH_SHORT).show();
+            enableControls(false);
+        });
     }
 }
