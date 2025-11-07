@@ -1,6 +1,10 @@
 package com.example.telepresencerobot;
 
 
+import android.app.PendingIntent;
+import android.content.Context;
+import android.hardware.usb.UsbDeviceConnection;
+import android.hardware.usb.UsbManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.WindowManager;
@@ -12,11 +16,17 @@ import androidx.activity.EdgeToEdge;
 import androidx.annotation.Nullable;
 
 import com.example.telepresencerobot.base.BaseWebRTCActivity;
+import com.example.telepresencerobot.Serial.SerialSocket.*;
+import com.example.telepresencerobot.Serial.SerialService.*;
+import com.hoho.android.usbserial.driver.UsbSerialDriver;
+import com.hoho.android.usbserial.driver.UsbSerialPort;
+import com.hoho.android.usbserial.driver.UsbSerialProber;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.webrtc.PeerConnection;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,6 +40,7 @@ public class RobotActivity extends BaseWebRTCActivity {
     private boolean connected = false;
     private Button TestBut;
     private ImageView Mic;
+    private UsbSerialPort port;
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -46,22 +57,37 @@ public class RobotActivity extends BaseWebRTCActivity {
                 | ImageView.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                 | ImageView.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         setContentView(R.layout.activity_robot);
-//        UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
-//        List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager);
-//        if (availableDrivers.isEmpty()) {
-//            return;
-//        }
-//        UsbSerialDriver driver = availableDrivers.get(0);
-//        UsbDeviceConnection connection = manager.openDevice(driver.getDevice());
-//        if (connection == null) {
-//            return;
-//        }
         Mic = findViewById(R.id.Mic);
         Mic.setImageAlpha(0);
         TestBut = findViewById(R.id.test_);
         remoteVideoView = findViewById(R.id.remote_video_view);
-        initializeVideoViews();
-        checkAndRequestPermissions();
+        try {
+            initUsbService();
+            initializeVideoViews();
+            checkAndRequestPermissions();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    private void initUsbService() throws IOException {
+        UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
+        List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager);
+        if (availableDrivers.isEmpty()) {
+            return;
+        }
+        UsbSerialDriver driver = availableDrivers.get(0);
+        UsbDeviceConnection connection = manager.openDevice(driver.getDevice());
+        if (connection == null) {
+
+            return;
+        }
+        port = driver.getPorts().get(0);
+        try {
+            port.open(connection);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        port.setParameters(115200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
     }
     @Override
     protected void onPermissionsGranted() {
@@ -144,99 +170,21 @@ public class RobotActivity extends BaseWebRTCActivity {
         try {
             Toast.makeText(this, "Get the "+Move.getString("direction")
                     +"_"+Move.getString("action"), Toast.LENGTH_SHORT).show();
-        }catch(JSONException e){
+            port.write(Move.toString().getBytes(),1000);
+        }catch(JSONException | IOException e){
             Log.e("RobotControl", "Error getting command", e);
         }
     }
-//    private void connect() {
-//        UsbDevice device = null;
-//        UsbManager usbManager = (UsbManager) getActivity().getSystemService(Context.USB_SERVICE);
-//        for(UsbDevice v : usbManager.getDeviceList().values())
-//            if(v.getDeviceId() == deviceId)
-//                device = v;
-//        if(device == null) {
-//            status("connection failed: device not found");
-//            return;
-//        }
-//        UsbSerialDriver driver = UsbSerialProber.getDefaultProber().probeDevice(device);
-//        if(driver == null) {
-//            driver = CustomProber.getCustomProber().probeDevice(device);
-//        }
-//        if(driver == null) {
-//            status("connection failed: no driver for device");
-//            return;
-//        }
-//        if(portNum >= driver.getPorts().size()) {
-//            status("connection failed: not enough ports at device");
-//            return;
-//        }
-//        usbSerialPort = driver.getPorts().get(portNum);
-//        UsbDeviceConnection usbConnection = usbManager.openDevice(driver.getDevice());
-//        if(usbConnection == null && usbPermission == UsbPermission.Unknown && !usbManager.hasPermission(driver.getDevice())) {
-//            usbPermission = UsbPermission.Requested;
-//            int flags = PendingIntent.FLAG_MUTABLE;
-//            Intent intent = new Intent(INTENT_ACTION_GRANT_USB);
-//            intent.setPackage(this.getPackageName());
-//            PendingIntent usbPermissionIntent = PendingIntent.getBroadcast(this, 0, intent, flags);
-//            usbManager.requestPermission(driver.getDevice(), usbPermissionIntent);
-//            return;
-//        }
-//        if(usbConnection == null) {
-//            if (!usbManager.hasPermission(driver.getDevice()))
-//                status("connection failed: permission denied");
-//            else
-//                status("connection failed: open failed");
-//            return;
-//        }
-//
-//        try {
-//            usbSerialPort.open(usbConnection);
-//            try{
-//                usbSerialPort.setParameters(baudRate, 8, 1, UsbSerialPort.PARITY_NONE);
-//            }catch (UnsupportedOperationException e){
-//                status("unsupport setparameters");
-//            }
-//            if(withIoManager) {
-//                usbIoManager = new SerialInputOutputManager(usbSerialPort, this);
-//                usbIoManager.start();
-//            }
-//            status("connected");
-//            connected = true;
-//            controlLines.start();
-//        } catch (Exception e) {
-//            status("connection failed: " + e.getMessage());
-//            disconnect();
-//        }
-//    }
-//    @Override
-//    public void onNewData(byte[] data) {
-//        mainLooper.post(() -> receive(data));
-//    }
-//
-//    @Override
-//    public void onRunError(Exception e) {
-//        mainLooper.post(() -> {
-//            status("connection lost: " + e.getMessage());
-//            disconnect();
-//        });
-//    }
-//    private void send(String str) {
-//        if(!connected) {
-//            Toast.makeText(this, "not connected", Toast.LENGTH_SHORT).show();
-//            return;
-//        }
-//        try {
-//            byte[] data = (str + '\n').getBytes();
-////            SpannableStringBuilder spn = new SpannableStringBuilder();
-////            spn.append("send " + data.length + " bytes\n");
-////            spn.append(HexDump.dumpHexString(data)).append("\n");
-////            spn.setSpan(new ForegroundColorSpan(getResources().getColor(R.color.colorSendText)), 0, spn.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-////            receiveText.append(spn);
-//            usbSerialPort.write(data, WRITE_WAIT_MILLIS);
-//        } catch (Exception e) {
-//            onRunError(e);
-//        }
-//    }
+
+    @Override
+    public void onDisconnected(String reason) {
+        super.onDisconnected(reason);
+        try {
+            port.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
     @Override
     protected void onDataChannelDisconnected() {
         runOnUiThread(() -> Toast.makeText(this, "DataChannel disconnected", Toast.LENGTH_SHORT).show());

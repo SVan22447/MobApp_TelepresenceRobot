@@ -113,7 +113,10 @@ public class MainActivity extends BaseWebRTCActivity {
     protected void handleRobotData(String data) {}
     @Override
     protected void onDataChannelConnected() {
-        runOnUiThread(() -> enableControls(true));
+        runOnUiThread(() -> {
+            enableControls(true);
+            sendMicStatus(true);
+        });
     }
     private void sendMicStatus(boolean status){
         try {
@@ -182,7 +185,6 @@ public class MainActivity extends BaseWebRTCActivity {
             if (MicButton != null) {
                 MicButton.setEnabled(true);
             }
-            Toast.makeText(this, "WebRTC connected successfully", Toast.LENGTH_SHORT).show();
         });
     }
     @Override
