@@ -97,10 +97,10 @@ public class MainActivity extends BaseWebRTCActivity {
         button.setOnTouchListener((v, event) -> {
             switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN:
-                    sendMovementCommand(direction, "press");
+                    sendMovementCommand(direction, false);
                     return true;
                 case MotionEvent.ACTION_UP:
-                    sendMovementCommand(direction, "release");
+                    sendMovementCommand(direction, true);
                     return true;
             }
             return false;
@@ -128,7 +128,7 @@ public class MainActivity extends BaseWebRTCActivity {
             Log.e("RobotControl", "Error creating command", e);
         }
     }
-    private void sendMovementCommand(String direction,String action) {
+    private void sendMovementCommand(String direction,boolean action) {
         try {
             JSONObject command = new JSONObject();
             Toast.makeText(this, "Command send " + direction, Toast.LENGTH_SHORT).show();

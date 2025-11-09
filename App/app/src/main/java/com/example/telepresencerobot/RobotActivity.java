@@ -1,7 +1,6 @@
 package com.example.telepresencerobot;
 
 
-import android.app.PendingIntent;
 import android.content.Context;
 import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbManager;
@@ -16,8 +15,6 @@ import androidx.activity.EdgeToEdge;
 import androidx.annotation.Nullable;
 
 import com.example.telepresencerobot.base.BaseWebRTCActivity;
-import com.example.telepresencerobot.Serial.SerialSocket.*;
-import com.example.telepresencerobot.Serial.SerialService.*;
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.driver.UsbSerialProber;
@@ -78,7 +75,6 @@ public class RobotActivity extends BaseWebRTCActivity {
         UsbSerialDriver driver = availableDrivers.get(0);
         UsbDeviceConnection connection = manager.openDevice(driver.getDevice());
         if (connection == null) {
-
             return;
         }
         port = driver.getPorts().get(0);
