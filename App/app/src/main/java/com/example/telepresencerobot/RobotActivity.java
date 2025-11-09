@@ -6,7 +6,6 @@ import android.hardware.usb.UsbManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
@@ -27,15 +26,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class RobotActivity extends BaseWebRTCActivity {
-    private boolean connected = false;
-    private Button TestBut;
     private ImageView Mic;
     private UsbSerialPort port;
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
-//        ContextCompat.registerReceiver(this, broadcastReceiver, new IntentFilter(INTENT_ACTION_GRANT_USB), ContextCompat.RECEIVER_NOT_EXPORTED);
         getWindow().addFlags(
                 WindowManager.LayoutParams.FLAG_FULLSCREEN
                         | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
@@ -49,7 +45,6 @@ public class RobotActivity extends BaseWebRTCActivity {
         setContentView(R.layout.activity_robot);
         Mic = findViewById(R.id.Mic);
         Mic.setImageAlpha(0);
-        TestBut = findViewById(R.id.test_);
         remoteVideoView = findViewById(R.id.remote_video_view);
         initializeVideoViews();
         checkAndRequestPermissions();
