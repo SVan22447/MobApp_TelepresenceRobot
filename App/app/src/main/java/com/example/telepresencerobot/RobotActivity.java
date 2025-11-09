@@ -1,6 +1,5 @@
 package com.example.telepresencerobot;
 
-
 import android.content.Context;
 import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbManager;
@@ -28,12 +27,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class RobotActivity extends BaseWebRTCActivity {
-//    private enum UsbPermission { Unknown, Requested, Granted, Denied }
-//    private static final int WRITE_WAIT_MILLIS = 2000;
-//    private static final int READ_WAIT_MILLIS = 2000;
-//    private UsbSerialPort usbSerialPort;
-//    private SerialInputOutputManager usbIoManager;
-//    private BroadcastReceiver broadcastReceiver;
     private boolean connected = false;
     private Button TestBut;
     private ImageView Mic;
@@ -58,24 +51,27 @@ public class RobotActivity extends BaseWebRTCActivity {
         Mic.setImageAlpha(0);
         TestBut = findViewById(R.id.test_);
         remoteVideoView = findViewById(R.id.remote_video_view);
+        initializeVideoViews();
+        checkAndRequestPermissions();
         try {
-            initUsbService();
-            initializeVideoViews();
-            checkAndRequestPermissions();
+            if (!initUsbService()) {
+                Toast.makeText(this, "USB устройство не найдено", Toast.LENGTH_LONG).show();
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
-    private void initUsbService() throws IOException {
+    private boolean initUsbService() throws IOException {
         UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
         List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager);
         if (availableDrivers.isEmpty()) {
-            return;
+            Log.e("USB", "No USB devices found");
+            return false;
         }
         UsbSerialDriver driver = availableDrivers.get(0);
         UsbDeviceConnection connection = manager.openDevice(driver.getDevice());
         if (connection == null) {
-            return;
+            return false;
         }
         port = driver.getPorts().get(0);
         try {
@@ -84,6 +80,7 @@ public class RobotActivity extends BaseWebRTCActivity {
             throw new RuntimeException(e);
         }
         port.setParameters(115200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
+        return true;
     }
     @Override
     protected void onPermissionsGranted() {
@@ -166,7 +163,11 @@ public class RobotActivity extends BaseWebRTCActivity {
         try {
             Toast.makeText(this, "Get the "+Move.getString("direction")
                     +"_"+Move.getString("action"), Toast.LENGTH_SHORT).show();
-            port.write(Move.toString().getBytes(),1000);
+            if (port != null) {
+                port.write(Move.toString().getBytes(), 1000);
+            } else {
+                Log.w("USB", "Attempted to send command but USB port is not available");
+            }
         }catch(JSONException | IOException e){
             Log.e("RobotControl", "Error getting command", e);
         }
@@ -175,10 +176,12 @@ public class RobotActivity extends BaseWebRTCActivity {
     @Override
     public void onDisconnected(String reason) {
         super.onDisconnected(reason);
-        try {
-            port.close();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        if (port != null) {
+            try {
+                port.close();
+            } catch (IOException e) {
+                Log.e("USB", "Error closing USB port", e);
+            }
         }
     }
     @Override

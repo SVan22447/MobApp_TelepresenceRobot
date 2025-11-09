@@ -16,10 +16,8 @@ public class StartActivity extends AppCompatActivity {
         setContentView(R.layout.activity_start);
         Button modeOne = findViewById(R.id.modeOne);
         Button modeTwo = findViewById(R.id.modeTwo);
-        Button test_button = findViewById(R.id.test_button);
         ButtonCreate(modeOne, MainActivity.class,false);
         ButtonCreate(modeTwo, RobotActivity.class,false);
-        ButtonCreate(test_button, TestUart2.class,false);
     }
     private void ButtonCreate(Button _but,Class<?> ClassName,boolean Finish){
         _but.setOnClickListener(view -> {
