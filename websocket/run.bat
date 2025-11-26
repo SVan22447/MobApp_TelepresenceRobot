@@ -1,4 +1,6 @@
 @echo off
+echo Starting WebRTC to RTSP servers with local Docker builds...
+docker-compose -f docker-compose-local.yml up --build
 if "%1"=="" goto error
 
 if "%1"=="start" (

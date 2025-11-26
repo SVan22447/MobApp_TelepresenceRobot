@@ -1,4 +1,4 @@
-version: '3.8'
+version: '4.52.0'
 
 services:
   signaling-server:
@@ -15,7 +15,7 @@ services:
 
   media-server:
     build: 
-      context: .
+      context: media-server
       dockerfile: Dockerfile.media
     ports:
       - "8888:8888"   # HTTP API
