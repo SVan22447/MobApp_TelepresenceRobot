@@ -22,3 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "TelepresenceRobot"
 include(":app")
+include(":app:myapplication")

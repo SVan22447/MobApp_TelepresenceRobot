@@ -46,9 +46,16 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"/>
+        <activity
+            android:name=".TestUart2"
+            android:windowSoftInputMode="stateHidden|adjustResize"
+            android:exported="true"/>
         <meta-data
             android:name = "TestUri"
             android:value = "${TestUri}"/>
+        <service
+            android:name=".Serial.SerialService"
+            android:foregroundServiceType="remoteMessaging|connectedDevice" />
     </application>
 
 </manifest>
