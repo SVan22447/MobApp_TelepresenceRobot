@@ -1,4 +1,5 @@
 const WebSocket = require('ws');
+
 const http = require('http');
 const url = require('url');
 
@@ -29,7 +30,22 @@ class Envelope {
         this.payload = payload;         // Для 'error'
     }
 }
-
+/**       
+ * MediaRelay - класс ретранслятора
+ */
+class MediaRelay {
+    constructor() {
+        this.rtspEndpoints = new Map(); // roomId -> RTSP URL
+        this.webrtcToRtsp = new Map(); // peerId -> RTSP процесс
+    }
+    async startRelay(roomId, peerId, sdpOffer) {
+        const rtspUrl = await this.launchTranscoder(roomId, peerId, sdpOffer);
+        this.rtspEndpoints.set(roomId, rtspUrl);
+        return rtspUrl;
+    }
+    stopRelay(roomId) {
+    }
+}
 // ================= Hub / Rooms =================
 
 /**
@@ -152,7 +168,7 @@ const wss = new WebSocket.Server({
     }
 });
 const PORT = process.env.ADDR || 8777;
-const PING_INTERVAL = 30000; // 30 секунд
+const PING_INTERVAL = 3000; // 3 секунды
 const MAX_MESSAGE_SIZE = 1 * 1024 * 1024; // 1 MiB
 setInterval(() => {
     wss.clients.forEach((ws) => {
@@ -167,6 +183,7 @@ setInterval(() => {
         }
     });
 }, PING_INTERVAL);
+const mediaRelay = new MediaRelay();
 wss.on('connection', (ws, req) => {
     const parsedUrl = url.parse(req.url, true);
     const roomId = parsedUrl.query.room;

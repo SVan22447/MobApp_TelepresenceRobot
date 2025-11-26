@@ -1,0 +1,20 @@
+FROM golang:1.19-alpine AS builder
+
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN go build -o media-server .
+
+FROM alpine:latest
+
+RUN apk add --no-cache \
+    ffmpeg \
+    ca-certificates
+
+WORKDIR /root/
+COPY --from=builder /app/media-server .
+
+EXPOSE 8888 8554 10000-20000/udp
+
+CMD ["./media-server"]
