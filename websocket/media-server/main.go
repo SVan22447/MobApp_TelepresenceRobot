@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -43,6 +42,8 @@ type MediaServer struct {
 	sessions      map[string]*StreamSession // roomID -> session
 	sessionsMutex sync.RWMutex
 	rtspPortCounter int
+	wsConn         *websocket.Conn
+	wsMutex        sync.Mutex
 }
 
 // WebSocket сообщения
@@ -69,31 +70,40 @@ func NewMediaServer(config *Config) *MediaServer {
 
 func (ms *MediaServer) Start() error {
 	// Запуск HTTP сервера для health checks
+	http.HandleFunc("/", ms.rootHandler)
 	http.HandleFunc("/health", ms.healthHandler)
 	http.HandleFunc("/sessions", ms.sessionsHandler)
 	
 	go func() {
 		log.Printf("Starting media server on %s", ms.config.MediaAddr)
 		if err := http.ListenAndServe(ms.config.MediaAddr, nil); err != nil {
-			log.Fatalf("Failed to start media server: %v", err)
+			log.Printf("❌ HTTP server error: %v", err)
 		}
 	}()
 	go ms.connectToSignalingServer()
+
 	return nil
 }
 
 func (ms *MediaServer) connectToSignalingServer() {
-	url := fmt.Sprintf("ws://%s/ws?room=media-server&peer=media-server", ms.config.SignalingAddr)
-	
 	for {
+		url := fmt.Sprintf("ws://%s/?room=default-room&peer=media-server", ms.config.SignalingAddr)
+		log.Printf("🔌 Connecting to signaling server: %s", url)
 		conn, _, err := websocket.DefaultDialer.Dial(url, nil)
 		if err != nil {
-			log.Printf("Failed to connect to signaling server: %v. Retrying in 5s...", err)
+			log.Printf("❌ Failed to connect to signaling server: %v. Retrying in 5s...", err)
 			time.Sleep(5 * time.Second)
 			continue
 		}
+
 		log.Printf("Connected to signaling server at %s", ms.config.SignalingAddr)
+		
+		ms.wsMutex.Lock()
+		ms.wsConn = conn
+		ms.wsMutex.Unlock()
+
 		ms.handleSignalingConnection(conn)
+		log.Printf("Reconnecting to signaling server...")
 		time.Sleep(5 * time.Second)
 	}
 }
@@ -108,16 +118,23 @@ func (ms *MediaServer) handleSignalingConnection(conn *websocket.Conn) {
 			log.Printf("WebSocket read error: %v", err)
 			return
 		}
+		log.Printf("Received message: type=%s from=%s room=%s", msg.Type, msg.From, msg.Room)
+		if msg.From == "media-server" {
+			continue
+		}
 
 		switch msg.Type {
 		case "offer":
 			go ms.handleOffer(msg)
-		case "ice-candidate":
+		case "ice":
 			go ms.handleICECandidate(msg)
 		case "peer-joined":
 			log.Printf("Peer joined: %s in room %s", msg.PeerID, msg.Room)
 		case "peer-left":
+			log.Printf("Peer left: %s from room %s", msg.PeerID, msg.Room)
 			go ms.cleanupSession(msg.Room)
+		default:
+			log.Printf("Unknown message type: %s", msg.Type)
 		}
 	}
 }
@@ -126,12 +143,12 @@ func (ms *MediaServer) handleOffer(msg WSMessage) {
 	log.Printf("Received offer from %s for room %s", msg.From, msg.Room)
 	session, err := ms.createStreamSession(msg.Room, msg.From, msg.SDP)
 	if err != nil {
-		log.Printf("Failed to create stream session: %v", err)
+		log.Printf("❌ Failed to create stream session: %v", err)
 		return
 	}
 	answer, err := ms.createAnswer(session, msg.SDP)
 	if err != nil {
-		log.Printf("Failed to create answer: %v", err)
+		log.Printf("❌ Failed to create answer: %v", err)
 		return
 	}
 
@@ -178,7 +195,7 @@ func (ms *MediaServer) createStreamSession(roomID, peerID, offerSDP string) (*St
 		CreatedAt:    time.Now(),
 	}
 	peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
-		log.Printf("Track received: %s, kind: %s", track.ID(), track.Kind().String())
+		log.Printf("📹 Track received: %s, kind: %s", track.ID(), track.Kind().String())
 		ms.handleTrack(session, track)
 	})
 	peerConnection.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
@@ -187,21 +204,34 @@ func (ms *MediaServer) createStreamSession(roomID, peerID, offerSDP string) (*St
 			ms.cleanupSession(roomID)
 		}
 	})
+	peerConnection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
+		if candidate == nil {
+			return
+		}
+		candidateMsg := WSMessage{
+			Type:   "ice",
+			Room:   roomID,
+			PeerID: "media-server",
+			From:   "media-server",
+			Candidate: json.RawMessage([]byte(fmt.Sprintf(`{"candidate":"%s","sdpMid":"%s","sdpMLineIndex":%d}`,
+				candidate.ToJSON().Candidate,
+				"0",
+				0))),
+		}
+		ms.sendToSignalingServer(candidateMsg)
+	})
 	offer := webrtc.SessionDescription{
 		Type: webrtc.SDPTypeOffer,
 		SDP:  offerSDP,
 	}
-
 	if err := peerConnection.SetRemoteDescription(offer); err != nil {
 		ms.cleanupSessionInternal(session)
 		return nil, fmt.Errorf("failed to set remote description: %w", err)
 	}
-
 	ms.sessions[roomID] = session
 	log.Printf("Created stream session for room %s, RTSP: %s", roomID, rtspEndpoint)
 	return session, nil
 }
-
 func (ms *MediaServer) createAnswer(session *StreamSession, offerSDP string) (string, error) {
 	answer, err := session.PC.CreateAnswer(nil)
 	if err != nil {
@@ -213,7 +243,6 @@ func (ms *MediaServer) createAnswer(session *StreamSession, offerSDP string) (st
 	}
 	return answer.SDP, nil
 }
-
 func (ms *MediaServer) startFFmpegTranscoder(port int, roomID string) (*exec.Cmd, error) {
 	cmd := exec.Command("ffmpeg",
 		"-f", "rtp",          // формат ввода RTP
@@ -232,9 +261,16 @@ func (ms *MediaServer) startFFmpegTranscoder(port int, roomID string) (*exec.Cmd
 }
 
 func (ms *MediaServer) handleTrack(session *StreamSession, track *webrtc.TrackRemote) {
-	// Здесь будет логика обработки медиа-треков
-	
 	log.Printf("Handling track %s for room %s", track.ID(), session.RoomID)
+	buffer := make([]byte, 1500)
+	for {
+		_, _, err := track.Read(buffer)
+		if err != nil {
+			log.Printf("❌ Error reading track: %v", err)
+			return
+		}
+		// Здесь должна быть логика записи в FFmpeg
+	}
 }
 
 func (ms *MediaServer) handleICECandidate(msg WSMessage) {
@@ -244,13 +280,22 @@ func (ms *MediaServer) handleICECandidate(msg WSMessage) {
 	if !exists {
 		return
 	}
-	var candidate webrtc.ICECandidateInit
-	if err := json.Unmarshal(msg.Candidate, &candidate); err != nil {
-		log.Printf("Failed to parse ICE candidate: %v", err)
+	var candidateData struct {
+		Candidate     string `json:"candidate"`
+		SDPMid        string `json:"sdpMid"`
+		SDPMLineIndex uint16    `json:"sdpMLineIndex"`
+	}
+	if err := json.Unmarshal(msg.Candidate, &candidateData); err != nil {
+		log.Printf("❌ Failed to parse ICE candidate: %v", err)
 		return
 	}
+	candidate := webrtc.ICECandidateInit{
+		Candidate:     candidateData.Candidate,
+		SDPMid:        &candidateData.SDPMid,
+		SDPMLineIndex: &candidateData.SDPMLineIndex,
+	}
 	if err := session.PC.AddICECandidate(candidate); err != nil {
-		log.Printf("Failed to add ICE candidate: %v", err)
+		log.Printf("❌ Failed to add ICE candidate: %v", err)
 	}
 }
 func (ms *MediaServer) cleanupSession(roomID string) {
@@ -274,26 +319,45 @@ func (ms *MediaServer) cleanupSessionInternal(session *StreamSession) {
 }
 
 func (ms *MediaServer) sendToSignalingServer(msg WSMessage) {
-	// Реализация отправки сообщений обратно в сигнальный сервер
-	url := fmt.Sprintf("ws://%s/ws?room=%s&peer=media-server", ms.config.SignalingAddr, msg.Room)
-	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
-	if err != nil {
-		log.Printf("Failed to connect to signaling server for sending: %v", err)
+	ms.wsMutex.Lock()
+	defer ms.wsMutex.Unlock()
+
+	if ms.wsConn == nil {
+		log.Printf("❌ No WebSocket connection available")
 		return
 	}
-	defer conn.Close()
-	if err := conn.WriteJSON(msg); err != nil {
-		log.Printf("Failed to send message to signaling server: %v", err)
+
+	if err := ms.wsConn.WriteJSON(msg); err != nil {
+		log.Printf("❌ Failed to send message to signaling server: %v", err)
+	} else {
+		log.Printf("Sent %s message to room %s", msg.Type, msg.Room)
 	}
+}
+
+func (ms *MediaServer) rootHandler(w http.ResponseWriter, r *http.Request) {
+	info := map[string]interface{}{
+		"service": "webrtc-rtsp-media-server",
+		"version": "1.0.0",
+		"status":  "running",
+		"endpoints": map[string]string{
+			"health":   "/health",
+			"sessions": "/sessions",
+		},
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(info)
 }
 
 func (ms *MediaServer) healthHandler(w http.ResponseWriter, r *http.Request) {
 	ms.sessionsMutex.RLock()
 	defer ms.sessionsMutex.RUnlock()
 	health := map[string]interface{}{
-		"status":   "healthy",
-		"sessions": len(ms.sessions),
-		"uptime":   time.Since(startTime).String(),
+		"status":    "healthy",
+		"service":   "webrtc-rtsp-media-server",
+		"uptime":    time.Since(startTime).String(),
+		"sessions":  len(ms.sessions),
+		"timestamp": time.Now().Format(time.RFC3339),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -314,15 +378,20 @@ func (ms *MediaServer) sessionsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(sessions)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"sessions": sessions,
+		"count":    len(sessions),
+	})
 }
 
 var startTime time.Time
 func main() {
 	startTime = time.Now()
+	log.Printf("Starting WebRTC to RTSP Media Server...")
+	log.Printf("Started at: %s", startTime.Format("2006-01-02 15:04:05"))
 	config := &Config{
 		SignalingAddr: "localhost:8777",
-		MediaAddr:     ":8888", 
+		MediaAddr:     ":8888",
 		RTSPPort:      8554,
 		STUNServer:    "stun:stun.l.google.com:19302",
 	}
@@ -340,6 +409,11 @@ func main() {
 	if stun := os.Getenv("STUN_SERVER"); stun != "" {
 		config.STUNServer = stun
 	}
+	log.Printf("Configuration:")
+	log.Printf("   - Signaling: %s", config.SignalingAddr)
+	log.Printf("   - Media API: %s", config.MediaAddr)
+	log.Printf("   - RTSP Port: %d", config.RTSPPort)
+	log.Printf("   - STUN Server: %s", config.STUNServer)
 	server := NewMediaServer(config)
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -349,8 +423,8 @@ func main() {
 		os.Exit(0)
 	}()
 	if err := server.Start(); err != nil {
-		log.Fatalf("Failed to start media server: %v", err)
+		log.Fatalf("❌ Failed to start media server: %v", err)
 	}
-	// Бесконечный цикл
+
 	select {}
 }
