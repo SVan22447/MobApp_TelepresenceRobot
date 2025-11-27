@@ -1,94 +1,79 @@
 @echo off
 chcp 65001 >nul
-setlocal EnableDelayedExpansion
 
 echo INSTANT WebRTC Servers Startup - No Docker!
 echo.
 set "ORIGINAL_DIR=%CD%"
-setlocal
-for /f "tokens=2 delims=;" %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
-echo %ESC%=== WebRTC Servers Starting ===%ESC%
-echo.
-echo Checking dependencies...
+echo Checking system dependencies...
 where npm >nul 2>&1
 if %errorlevel% neq 0 (
-    echo %ESC%Error: npm is not installed or not in PATH%ESC%
+    echo ERROR: npm is not installed or not in PATH
     goto :EXIT
 )
 where go >nul 2>&1
 if %errorlevel% neq 0 (
-    echo %ESC%Error: Go is not installed or not in PATH%ESC%
+    echo ERROR: Go is not installed or not in PATH
     goto :EXIT
 )
 if not exist "media-server\" (
-    echo %ESC%Error: media-server directory not found%ESC%
+    echo ERROR: media-server directory not found
     goto :EXIT
 )
+echo Checking Node.js dependencies...
 if not exist "package.json" (
-    echo %ESC%Warning: package.json not found in current directory%ESC%
+    echo ERROR: package.json not found in current directory
+    goto :EXIT
 )
-echo %ESC%Starting Signaling Server (Node.js)...%ESC%
-start "WebRTC Signaling Server" cmd /c "npm start && pause"
-echo %ESC%Waiting for signaling server to start (3 seconds)...%ESC%
+if not exist "node_modules\" (
+    echo Node modules not found. Installing dependencies...
+    npm install
+    if %errorlevel% neq 0 (
+        echo ERROR: npm install failed
+        goto :EXIT
+    )
+    echo Node.js dependencies installed successfully!
+) else (
+    echo Node.js dependencies found.
+)
+echo Checking Go dependencies...
+if not exist "media-server\go.mod" (
+    echo ERROR: go.mod not found in media-server directory
+    goto :EXIT
+)
+if not exist "media-server\go.sum" (
+    echo go.sum not found. Running go mod tidy...
+    cd media-server
+    go mod tidy
+    if %errorlevel% neq 0 (
+        echo ERROR: go mod tidy failed
+        cd ..
+        goto :EXIT
+    )
+    cd ..
+    echo Go dependencies installed successfully!
+) else (
+    echo Go dependencies found.
+)
+echo.
+echo Starting servers...
+echo Starting Signaling Server (Node.js)...
+start "WebRTC Signaling Server" cmd /k "npm start"
+echo Waiting for signaling server to start (3 seconds)...
 timeout /t 3 /nobreak >nul
-echo %ESC%Starting Media Server (Go)...%ESC%
-echo %ESC%Media Server is running. Press Ctrl+C to stop.%ESC%
+echo Starting Media Server (Go)...
+echo Media Server is running. Press Ctrl+C to stop.
 echo.
 
 cd media-server
 go run main.go
 
 echo.
-echo %ESC%[0;33mMedia Server stopped.%ESC%
+echo Media Server stopped.
 
 :EXIT
     cd /d "%ORIGINAL_DIR%"
     echo.
-    echo %ESC%[0;32mCurrent directory restored to:%ESC%
+    echo Current directory restored to:
     echo %CD%
-    echo.
-    echo %ESC%[0;33mNote: Signaling Server may still be running in separate window.%ESC%
-    echo %ESC%[0;33mClose that window manually if needed.%ESC%
     pause
     exit /b 0
-@REM docker version
-goto label1
-@echo off
-echo Starting WebRTC to RTSP servers with local Docker builds...
-docker-compose -f docker-compose-local.yml up --build
-if "%1"=="" goto error
-
-if "%1"=="start" (
-    echo Starting WebRTC to RTSP servers...
-    docker-compose up -d
-    goto end
-)
-
-if "%1"=="stop" (
-    echo Stopping WebRTC to RTSP servers...
-    docker-compose down
-    goto end
-)
-
-if "%1"=="restart" (
-    echo Restarting WebRTC to RTSP servers...
-    docker-compose restart
-    goto end
-)
-
-if "%1"=="status" (
-    docker-compose ps
-    goto end
-)
-
-if "%1"=="logs" (
-    docker-compose logs -f
-    goto end
-)
-
-:error
-echo Usage: %0 {start^|stop^|restart^|status^|logs}
-exit /b 1
-
-:end
-:label1
