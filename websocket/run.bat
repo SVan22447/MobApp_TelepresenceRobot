@@ -5,39 +5,52 @@ setlocal EnableDelayedExpansion
 echo INSTANT WebRTC Servers Startup - No Docker!
 echo.
 set "ORIGINAL_DIR=%CD%"
-:EXIT
-    cd /d "%ORIGINAL_DIR%"
-    echo All servers stopped. Current directory restored to:
-    echo %CD%
-    pause
-    exit /b %errorlevel%
+setlocal
+for /f "tokens=2 delims=;" %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
+echo %ESC%=== WebRTC Servers Starting ===%ESC%
+echo.
+echo Checking dependencies...
 where npm >nul 2>&1
 if %errorlevel% neq 0 (
-    echo Error: npm is not installed or not in PATH
+    echo %ESC%Error: npm is not installed or not in PATH%ESC%
     goto :EXIT
 )
 where go >nul 2>&1
 if %errorlevel% neq 0 (
-    echo Error: Go is not installed or not in PATH
+    echo %ESC%Error: Go is not installed or not in PATH%ESC%
     goto :EXIT
 )
 if not exist "media-server\" (
-    echo Error: media-server directory not found
+    echo %ESC%Error: media-server directory not found%ESC%
     goto :EXIT
 )
-echo Starting Signaling Server (Node.js)...
-start "Signaling Server" npm start
-if %errorlevel% neq 0 (
-    echo Failed to start Signaling Server
-    goto :EXIT
+if not exist "package.json" (
+    echo %ESC%Warning: package.json not found in current directory%ESC%
 )
-echo Waiting for signaling server to start...
+echo %ESC%Starting Signaling Server (Node.js)...%ESC%
+start "WebRTC Signaling Server" cmd /c "npm start && pause"
+echo %ESC%Waiting for signaling server to start (3 seconds)...%ESC%
 timeout /t 3 /nobreak >nul
-echo Starting Media Server (Go)...
+echo %ESC%Starting Media Server (Go)...%ESC%
+echo %ESC%Media Server is running. Press Ctrl+C to stop.%ESC%
+echo.
+
 cd media-server
 go run main.go
-goto :EXIT
 
+echo.
+echo %ESC%[0;33mMedia Server stopped.%ESC%
+
+:EXIT
+    cd /d "%ORIGINAL_DIR%"
+    echo.
+    echo %ESC%[0;32mCurrent directory restored to:%ESC%
+    echo %CD%
+    echo.
+    echo %ESC%[0;33mNote: Signaling Server may still be running in separate window.%ESC%
+    echo %ESC%[0;33mClose that window manually if needed.%ESC%
+    pause
+    exit /b 0
 @REM docker version
 goto label1
 @echo off
